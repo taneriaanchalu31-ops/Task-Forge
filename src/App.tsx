@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -7,9 +7,11 @@ import {
   Music, 
   ShoppingBag, 
   User as UserIcon, 
+  ChevronRight, 
   Plus, 
   Trash2, 
   Star, 
+  Clock, 
   Play, 
   Pause, 
   RotateCcw, 
@@ -21,6 +23,7 @@ import {
   X,
   Menu,
   AlertTriangle,
+  ExternalLink,
   Edit2,
   Camera,
   Save,
@@ -43,23 +46,17 @@ function getOrCreateUserId() {
 
 const UID = getOrCreateUserId();
 
-// FIXED: TypeScript signature allows functional updates to prevent build crashes
-function useStored<T>(key: string, initial: T): [T, (val: T | ((prev: T) => T)) => void] {
+function useStored<T>(key: string, initial: T): [T, (val: T) => void] {
   const fullKey = `${key}_${UID}`;
   const [val, setVal] = useState<T>(() => {
     const s = localStorage.getItem(fullKey);
     if (!s) return initial;
     try { return JSON.parse(s); } catch { return initial; }
   });
-
-  const update = (v: T | ((prev: T) => T)) => {
-    setVal(prev => {
-      const next = typeof v === 'function' ? (v as (p: T) => T)(prev) : v;
-      localStorage.setItem(fullKey, JSON.stringify(next));
-      return next;
-    });
+  const update = (v: T) => {
+    setVal(v);
+    localStorage.setItem(fullKey, JSON.stringify(v));
   };
-
   return [val, update];
 }
 
@@ -69,22 +66,30 @@ const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
 // --- PREMIUM LOGO COMPONENT ---
 function SwordLogo({ size = 44 }: { size?: number }) {
   return (
-    <div
+    <div 
       className="rounded-full flex items-center justify-center relative overflow-hidden flex-shrink-0"
-      style={{
-        width: size,
-        height: size,
-        background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 55%, #A78BFA 100%)',
-        boxShadow: '0 4px 18px rgba(124, 58, 237, 0.5)',
+      style={{ 
+        width: size, 
+        height: size, 
+        background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 50%, #C084FC 100%)',
+        boxShadow: '0 4px 20px rgba(124, 58, 237, 0.45)'
       }}
     >
-      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 24 24" fill="none">
-        <path d="M12 2 L13.3 8.8 L15.8 10.2 L13.3 11 L12 20 L10.7 11 L8.2 10.2 L10.7 8.8 Z" fill="white" />
-        <path d="M12 2 L13.3 8.8 L15.8 10.2 L13.3 11 L12 20 Z" fill="#E2E8F0" />
-        <rect x="7" y="10.8" width="10" height="1.6" rx="0.4" fill="white" />
-        <rect x="10.6" y="12.2" width="2.8" height="5.2" rx="0.3" fill="#CBD5E1" />
-        <path d="M10.6 13.4 H13.4 M10.6 14.8 H13.4 M10.6 16.2 H13.4" stroke="#94A3B8" strokeWidth="0.45" />
-        <circle cx="12" cy="18.6" r="1.35" fill="white" />
+      <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(0, -2)">
+          {/* Blade Left Side */}
+          <path d="M50 18 L55 35 L53 65 L47 65 L45 35 Z" fill="#FFFFFF" />
+          {/* Blade Right Side (Depth/Shadow) */}
+          <path d="M50 18 L55 35 L53 65 L50 65 Z" fill="#E2E8F0" />
+          {/* Crossguard */}
+          <rect x="32" y="63" width="36" height="4" rx="2" fill="#FFFFFF" />
+          {/* Hilt / Grip */}
+          <rect x="46" y="67" width="8" height="14" fill="#CBD5E1" />
+          {/* Grip Wraps */}
+          <path d="M46 70 L54 72 M46 74 L54 76 M46 78 L54 80" stroke="#94A3B8" strokeWidth="1.5" />
+          {/* Pommel */}
+          <circle cx="50" cy="83" r="5" fill="#FFFFFF" />
+        </g>
       </svg>
     </div>
   );
@@ -109,7 +114,7 @@ const VERSES = [
   { text: "Your word is a lamp for my feet, a light on my path.", ref: "Psalm 119:105" }
 ];
 
-const EMOJIS = ["🔥","⭐","📖","💪","🥗","💧","🧘","🧠","🛠️","🎸","🎨","💻","🏃","🚶","🏀","⚽","🍎","🥦","🥑","🥛","🍵","☕","🌅","🌙","✨","⚡","💎","🎯","🏹","🛡️","🚀","🛸","🏔️","🌊","🌳","🌿","🌻","🕊️","🦁","🐺","🦊","🐾","🏠","🧹","🧺","💰","📈","📚","🖋️","🎹","🥁","🎷","🎺","🎻","🧘‍♀️","🛌","🚿","🦷","🧸"];
+const EMOJIS = ["🔥","⭐","📖","💪","🥗","💧","🧘","🧠","🛠️","🎸","🎨","💻","🏃","🚶","🏀","⚽","🍎","🥦","🥑","🥛","🍵","☕","🌅","🌙","✨","⚡","💎","🎯","🏹","🛡️","🚀","🛸","🛸","🏔️","🌊","🌳","🌿","🌻","🕊️","🦁","🐺","🦊","🐾","🏠","🧹","🧺","💰","📈","📚","🖋️","🎹","🥁","🎷","🎺","🎻","🧘‍♀️","🛌","🚿","🦷","🧸"];
 
 const SHOP = [
   // Titles
@@ -228,17 +233,12 @@ const FOCUS_PRESETS = [
 
 // --- SOUND ENGINE ---
 type SoundType = 'rain' | 'ocean' | 'cafe' | 'white' | 'pink' | 'brown' | 'binaural';
-
 class FocusAudio {
   private ctx: AudioContext | null = null;
   private nodes: Map<SoundType, { gain: GainNode; source: AudioNode }> = new Map();
 
   private init() {
-    if (!this.ctx) {
-      // FIXED: Safely instantiate AudioContext for TypeScript
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.ctx = new AudioCtx();
-    }
+    if (!this.ctx) this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
   }
 
   toggle(type: SoundType, volume: number) {
@@ -273,8 +273,8 @@ class FocusAudio {
     const node = this.ctx!.createScriptProcessor(bufferSize, 1, 1);
     
     if (type === 'white' || type === 'pink' || type === 'brown' || type === 'rain' || type === 'ocean' || type === 'cafe') {
-      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-      let lastOut = 0;
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0; // For pink
+      let lastOut = 0; // For brown/ocean
       
       node.onaudioprocess = (e) => {
         const out = e.outputBuffer.getChannelData(0);
@@ -361,6 +361,7 @@ export default function TaskForge() {
   const [habits, setHabits] = useStored<any[]>('tf_habits_v4', []);
   const [todos, setTodos] = useStored<any[]>('tf_todos_v4', []);
   const [boss, setBoss] = useStored('tf_boss_v4', makeBoss(0, 1));
+  const [logs, setLogs] = useState<string[]>([]);
   const [notif, setNotif] = useState<string | null>(null);
   const [showTut, setShowTut] = useStored('tf_show_tutorial', true);
   const [tutStep, setTutStep] = useState(0);
@@ -370,7 +371,6 @@ export default function TaskForge() {
   // Focus States
   const [hiddenPlaylists, setHiddenPlaylists] = useStored<string[]>('tf_hidden_spotify_v1', []);
   const [customPlaylists, setCustomPlaylists] = useStored<any[]>('tf_custom_spotify_v1', []);
-  const [showHiddenBin, setShowHiddenBin] = useState(false);
 
   const touch = () => setHero({ ...hero });
 
@@ -856,6 +856,7 @@ export default function TaskForge() {
     const [noiseVol, setNoiseVol] = useState(0.5);
     const [activeSpotify, setActiveSpotify] = useState<string | null>(null);
     const [customLink, setCustomLink] = useState('');
+    const [showHiddenBin, setShowHiddenBin] = useState(false);
 
     useEffect(() => {
       let t: any;
@@ -882,7 +883,7 @@ export default function TaskForge() {
     };
 
     const hidePlaylist = (id: string) => {
-      setHiddenPlaylists(prev => prev.includes(id) ? prev : [...prev, id]);
+      setHiddenPlaylists([...hiddenPlaylists, id]);
       if (activeSpotify === id) setActiveSpotify(null);
     };
 
@@ -973,7 +974,25 @@ export default function TaskForge() {
                 </button>
               </div>
             ) : (
-              <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center">
+              <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center relative">
+                
+                {/* Archived Hidden Items Button */}
+                <div className="absolute top-6 right-6">
+                   <button 
+                      onClick={() => setShowHiddenBin(!showHiddenBin)}
+                      className={`p-3 rounded-xl transition-all relative ${hiddenPlaylists.length > 0 ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-transparent text-slate-700 cursor-not-allowed'}`}
+                      disabled={hiddenPlaylists.length === 0}
+                      title="Hidden Suggestions"
+                   >
+                      <Archive size={20} />
+                      {hiddenPlaylists.length > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-600 text-[9px] font-black flex items-center justify-center rounded-full text-white ring-2 ring-slate-900">
+                          {hiddenPlaylists.length}
+                        </span>
+                      )}
+                   </button>
+                </div>
+
                 <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 text-slate-600"><Music size={40} /></div>
                 <h3 className="text-2xl font-black text-white mb-3">Atmospheric Resonance</h3>
                 <p className="text-slate-500 font-bold max-w-sm">Select a sonic environment below or paste a Spotify playlist link to begin your deep work session.</p>
@@ -985,48 +1004,32 @@ export default function TaskForge() {
               </div>
             )}
 
-            {/* Archive Button + Header above Grid */}
-            <div className="flex justify-between items-center px-2 mb-2">
-               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Soundscapes</h3>
-               <button 
-                  onClick={() => setShowHiddenBin(!showHiddenBin)}
-                  disabled={hiddenPlaylists.length === 0}
-                  className={`relative p-2.5 rounded-xl transition-all flex items-center justify-center ${hiddenPlaylists.length > 0 ? 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer' : 'text-slate-700 cursor-not-allowed'}`}
-                  title="Archive / Hidden Suggestions"
-               >
-                  <Archive size={18} />
-                  {hiddenPlaylists.length > 0 && (
-                     <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white ring-2 ring-black">
-                        {hiddenPlaylists.length}
-                     </span>
-                  )}
-               </button>
-            </div>
-
             {/* Hidden Bin Panel */}
             <AnimatePresence>
-               {showHiddenBin && hiddenPlaylists.length > 0 && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                     <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl mb-6 shadow-xl">
-                        <div className="flex flex-wrap gap-2">
-                           {hiddenPlaylists.map(id => {
-                              const p = [...SPOTIFY_PLAYLISTS, ...customPlaylists].find(x => x.id === id);
-                              if (!p) return null;
-                              return (
-                                 <div key={id} className="flex items-center gap-3 bg-slate-800 border border-slate-700 pl-3 pr-2 py-1.5 rounded-xl text-sm">
-                                    <span className="font-bold text-slate-300">{p.name}</span>
-                                    <button type="button" onClick={() => restorePlaylist(id)} className="text-slate-500 hover:text-violet-400 p-1 bg-slate-900/50 rounded-md transition-colors" title="Restore">
-                                       <RotateCw size={14} />
-                                    </button>
-                                 </div>
-                              );
-                           })}
-                        </div>
-                     </div>
-                  </motion.div>
-               )}
+              {showHiddenBin && hiddenPlaylists.length > 0 && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <div className="p-5 bg-slate-900/80 border border-slate-700 rounded-2xl mb-6">
+                    <h4 className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Archive size={14} /> Hidden Suggestions Archive</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {hiddenPlaylists.map(id => {
+                        const p = [...SPOTIFY_PLAYLISTS, ...customPlaylists].find(x => x.id === id);
+                        if (!p) return null;
+                        return (
+                          <div key={id} className="flex items-center gap-2 bg-slate-800 border border-slate-700 pl-3 pr-2 py-1.5 rounded-xl text-sm shadow-sm group/bin">
+                            <span className="font-bold text-slate-300">{p.name}</span>
+                            <button onClick={() => restorePlaylist(id)} className="text-slate-500 hover:text-violet-400 p-1 rounded-md transition-colors bg-slate-900/50" title="Restore">
+                              <RotateCw size={14} />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </AnimatePresence>
 
+            {/* Spotify Playlist Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
               {allPlaylists.map(p => (
                 <div key={p.id} className="relative group">
@@ -1040,12 +1043,12 @@ export default function TaskForge() {
                       <p className="font-bold text-white leading-tight">{p.name}</p>
                     </div>
                   </button>
-                  {/* Strict Hover X */}
-                  <button
-                    type="button"
-                    title="Hide suggestion"
+                  
+                  {/* STRICT HIDDEN X - Only visible when cursor hovers this exact card */}
+                  <button 
                     onClick={(e) => { e.stopPropagation(); hidePlaylist(p.id); }}
-                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-800/90 text-slate-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:text-red-400 hover:bg-red-500/20 transition-all z-10"
+                    className="absolute top-2 right-2 p-1.5 bg-slate-800/90 text-slate-400 rounded-lg hidden group-hover:flex items-center justify-center hover:text-red-500 hover:bg-red-500/20 transition-all z-10 shadow-lg"
+                    title="Hide Suggestion"
                   >
                     <X size={14} />
                   </button>
@@ -1054,12 +1057,10 @@ export default function TaskForge() {
             </div>
 
             {allPlaylists.length === 0 && !showHiddenBin && (
-               <div className="text-center py-10 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
-                 <p className="text-slate-500 font-bold mb-4">All suggestions hidden.</p>
-                 <button onClick={() => setShowHiddenBin(true)} className="text-violet-500 font-black text-xs uppercase flex items-center justify-center gap-1 mx-auto">
-                   <Archive size={14} /> Open Archive
-                 </button>
-               </div>
+              <div className="text-center py-10 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
+                <p className="text-slate-500 font-bold mb-4">All suggestions hidden.</p>
+                <button onClick={() => setShowHiddenBin(true)} className="text-violet-500 font-black text-xs uppercase flex items-center justify-center gap-1 mx-auto"><Archive size={14} /> Open Archive</button>
+              </div>
             )}
           </div>
         </div>
