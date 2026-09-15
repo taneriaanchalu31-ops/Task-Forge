@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -7,11 +7,9 @@ import {
   Music, 
   ShoppingBag, 
   User as UserIcon, 
-  ChevronRight, 
   Plus, 
   Trash2, 
   Star, 
-  Clock, 
   Play, 
   Pause, 
   RotateCcw, 
@@ -23,7 +21,6 @@ import {
   X,
   Menu,
   AlertTriangle,
-  ExternalLink,
   Edit2,
   Camera,
   Save,
@@ -46,24 +43,29 @@ function getOrCreateUserId() {
 
 const UID = getOrCreateUserId();
 
-function useStored<T>(key: string, initial: T): [T, (val: T) => void] {
+function useStored<T>(key: string, initial: T): [T, (val: T | ((prev: T) => T)) => void] {
   const fullKey = `${key}_${UID}`;
   const [val, setVal] = useState<T>(() => {
     const s = localStorage.getItem(fullKey);
     if (!s) return initial;
     try { return JSON.parse(s); } catch { return initial; }
   });
-  const update = (v: T) => {
-    setVal(v);
-    localStorage.setItem(fullKey, JSON.stringify(v));
+
+  const update = (v: T | ((prev: T) => T)) => {
+    setVal(prev => {
+      const next = typeof v === 'function' ? (v as (p: T) => T)(prev) : v;
+      localStorage.setItem(fullKey, JSON.stringify(next));
+      return next;
+    });
   };
+
   return [val, update];
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
 
-// --- PREMIUM LOGO COMPONENT ---
+// --- HIGH-RESOLUTION SWORD LOGO ---
 function SwordLogo({ size = 44 }: { size?: number }) {
   return (
     <div 
@@ -71,24 +73,33 @@ function SwordLogo({ size = 44 }: { size?: number }) {
       style={{ 
         width: size, 
         height: size, 
-        background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 50%, #C084FC 100%)',
-        boxShadow: '0 4px 20px rgba(124, 58, 237, 0.45)'
+        background: 'linear-gradient(135deg, #5B21B6 0%, #7C3AED 50%, #A78BFA 100%)',
+        boxShadow: '0 4px 20px rgba(124, 58, 237, 0.55)',
+        border: '1.5px solid rgba(192, 132, 252, 0.4)'
       }}
     >
-      <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g transform="translate(0, -2)">
-          {/* Blade Left Side */}
-          <path d="M50 18 L55 35 L53 65 L47 65 L45 35 Z" fill="#FFFFFF" />
-          {/* Blade Right Side (Depth/Shadow) */}
-          <path d="M50 18 L55 35 L53 65 L50 65 Z" fill="#E2E8F0" />
-          {/* Crossguard */}
-          <rect x="32" y="63" width="36" height="4" rx="2" fill="#FFFFFF" />
-          {/* Hilt / Grip */}
-          <rect x="46" y="67" width="8" height="14" fill="#CBD5E1" />
-          {/* Grip Wraps */}
-          <path d="M46 70 L54 72 M46 74 L54 76 M46 78 L54 80" stroke="#94A3B8" strokeWidth="1.5" />
+      <svg width={size * 0.85} height={size * 0.85} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bladeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="50%" stopColor="#F1F5F9" />
+            <stop offset="50%" stopColor="#E2E8F0" />
+            <stop offset="100%" stopColor="#CBD5E1" />
+          </linearGradient>
+        </defs>
+        <g transform="translate(0, -1)">
+          {/* Blade Body */}
+          <path d="M50 14 L56 38 L53 62 L47 62 L44 38 Z" fill="url(#bladeGrad)" />
+          {/* Blade Fuller / Center Ridge */}
+          <path d="M50 14 L50 62" stroke="#94A3B8" strokeWidth="0.8" />
+          {/* Curved Guard */}
+          <path d="M30 61 C40 59 60 59 70 61 L70 66 C60 64 40 64 30 66 Z" fill="#FFFFFF" />
+          {/* Grip */}
+          <rect x="46" y="66" width="8" height="15" rx="1" fill="#E2E8F0" />
+          {/* Grip Leather Wraps */}
+          <path d="M46 69 H54 M46 72 H54 M46 75 H54 M46 78 H54" stroke="#64748B" strokeWidth="1" />
           {/* Pommel */}
-          <circle cx="50" cy="83" r="5" fill="#FFFFFF" />
+          <circle cx="50" cy="84" r="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1" />
         </g>
       </svg>
     </div>
@@ -114,7 +125,7 @@ const VERSES = [
   { text: "Your word is a lamp for my feet, a light on my path.", ref: "Psalm 119:105" }
 ];
 
-const EMOJIS = ["🔥","⭐","📖","💪","🥗","💧","🧘","🧠","🛠️","🎸","🎨","💻","🏃","🚶","🏀","⚽","🍎","🥦","🥑","🥛","🍵","☕","🌅","🌙","✨","⚡","💎","🎯","🏹","🛡️","🚀","🛸","🛸","🏔️","🌊","🌳","🌿","🌻","🕊️","🦁","🐺","🦊","🐾","🏠","🧹","🧺","💰","📈","📚","🖋️","🎹","🥁","🎷","🎺","🎻","🧘‍♀️","🛌","🚿","🦷","🧸"];
+const EMOJIS = ["🔥","⭐","📖","💪","🥗","💧","🧘","🧠","🛠️","🎸","🎨","💻","🏃","🚶","🏀","⚽","🍎","🥦","🥑","🥛","🍵","☕","🌅","🌙","✨","⚡","💎","🎯","🏹","🛡️","🚀","🛸","🏔️","🌊","🌳","🌿","🌻","🕊️","🦁","🐺","🦊","🐾","🏠","🧹","🧺","💰","📈","📚","🖋️","🎹","🥁","🎷","🎺","🎻","🧘‍♀️","🛌","🚿","🦷","🧸"];
 
 const SHOP = [
   // Titles
@@ -233,12 +244,16 @@ const FOCUS_PRESETS = [
 
 // --- SOUND ENGINE ---
 type SoundType = 'rain' | 'ocean' | 'cafe' | 'white' | 'pink' | 'brown' | 'binaural';
+
 class FocusAudio {
   private ctx: AudioContext | null = null;
   private nodes: Map<SoundType, { gain: GainNode; source: AudioNode }> = new Map();
 
   private init() {
-    if (!this.ctx) this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      this.ctx = new AudioCtx();
+    }
   }
 
   toggle(type: SoundType, volume: number) {
@@ -273,8 +288,8 @@ class FocusAudio {
     const node = this.ctx!.createScriptProcessor(bufferSize, 1, 1);
     
     if (type === 'white' || type === 'pink' || type === 'brown' || type === 'rain' || type === 'ocean' || type === 'cafe') {
-      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0; // For pink
-      let lastOut = 0; // For brown/ocean
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      let lastOut = 0;
       
       node.onaudioprocess = (e) => {
         const out = e.outputBuffer.getChannelData(0);
@@ -361,7 +376,6 @@ export default function TaskForge() {
   const [habits, setHabits] = useStored<any[]>('tf_habits_v4', []);
   const [todos, setTodos] = useStored<any[]>('tf_todos_v4', []);
   const [boss, setBoss] = useStored('tf_boss_v4', makeBoss(0, 1));
-  const [logs, setLogs] = useState<string[]>([]);
   const [notif, setNotif] = useState<string | null>(null);
   const [showTut, setShowTut] = useStored('tf_show_tutorial', true);
   const [tutStep, setTutStep] = useState(0);
@@ -443,7 +457,7 @@ export default function TaskForge() {
     <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900/90 backdrop-blur-xl border-r border-slate-800 transition-transform lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="p-6 flex flex-col h-full">
         <div className="flex items-center gap-3 mb-10">
-          <SwordLogo size={42} />
+          <SwordLogo size={44} />
           <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">TASK FORGE</h1>
         </div>
 
@@ -883,7 +897,7 @@ export default function TaskForge() {
     };
 
     const hidePlaylist = (id: string) => {
-      setHiddenPlaylists([...hiddenPlaylists, id]);
+      setHiddenPlaylists(prev => [...prev, id]);
       if (activeSpotify === id) setActiveSpotify(null);
     };
 
@@ -976,13 +990,13 @@ export default function TaskForge() {
             ) : (
               <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center relative">
                 
-                {/* Archived Hidden Items Button */}
+                {/* Archive Button for Hidden Suggestions */}
                 <div className="absolute top-6 right-6">
                    <button 
                       onClick={() => setShowHiddenBin(!showHiddenBin)}
-                      className={`p-3 rounded-xl transition-all relative ${hiddenPlaylists.length > 0 ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-transparent text-slate-700 cursor-not-allowed'}`}
+                      className={`p-3 rounded-xl transition-all relative ${hiddenPlaylists.length > 0 ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white' : 'bg-transparent text-slate-800 cursor-not-allowed'}`}
                       disabled={hiddenPlaylists.length === 0}
-                      title="Hidden Suggestions"
+                      title="Hidden Suggestions Archive"
                    >
                       <Archive size={20} />
                       {hiddenPlaylists.length > 0 && (
@@ -1004,24 +1018,24 @@ export default function TaskForge() {
               </div>
             )}
 
-            {/* Hidden Bin Panel */}
+            {/* Hidden Suggestions Archive Panel */}
             <AnimatePresence>
               {showHiddenBin && hiddenPlaylists.length > 0 && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                  <div className="p-5 bg-slate-900/80 border border-slate-700 rounded-2xl mb-6">
+                  <div className="p-5 bg-slate-900/90 border border-slate-700 rounded-2xl mb-6 shadow-xl">
                     <h4 className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Archive size={14} /> Hidden Suggestions Archive</h4>
                     <div className="flex flex-wrap gap-2">
                       {hiddenPlaylists.map(id => {
                         const p = [...SPOTIFY_PLAYLISTS, ...customPlaylists].find(x => x.id === id);
                         if (!p) return null;
                         return (
-                          <div key={id} className="flex items-center gap-2 bg-slate-800 border border-slate-700 pl-3 pr-2 py-1.5 rounded-xl text-sm shadow-sm group/bin">
+                          <div key={id} className="flex items-center gap-2 bg-slate-800 border border-slate-700 pl-3 pr-2 py-1.5 rounded-xl text-sm shadow-sm">
                             <span className="font-bold text-slate-300">{p.name}</span>
-                            <button onClick={() => restorePlaylist(id)} className="text-slate-500 hover:text-violet-400 p-1 rounded-md transition-colors bg-slate-900/50" title="Restore">
+                            <button onClick={() => restorePlaylist(id)} className="text-slate-400 hover:text-violet-400 p-1 rounded-md transition-colors bg-slate-900/60" title="Restore Suggestion">
                               <RotateCw size={14} />
                             </button>
                           </div>
-                        )
+                        );
                       })}
                     </div>
                   </div>
@@ -1029,7 +1043,7 @@ export default function TaskForge() {
               )}
             </AnimatePresence>
 
-            {/* Spotify Playlist Grid */}
+            {/* Spotify Playlists Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
               {allPlaylists.map(p => (
                 <div key={p.id} className="relative group">
@@ -1044,10 +1058,10 @@ export default function TaskForge() {
                     </div>
                   </button>
                   
-                  {/* STRICT HIDDEN X - Only visible when cursor hovers this exact card */}
+                  {/* Strict Hover-Only X Button */}
                   <button 
                     onClick={(e) => { e.stopPropagation(); hidePlaylist(p.id); }}
-                    className="absolute top-2 right-2 p-1.5 bg-slate-800/90 text-slate-400 rounded-lg hidden group-hover:flex items-center justify-center hover:text-red-500 hover:bg-red-500/20 transition-all z-10 shadow-lg"
+                    className="absolute top-2 right-2 p-1.5 bg-slate-800/90 text-slate-400 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:text-red-500 hover:bg-red-500/20 transition-all z-10 shadow-lg"
                     title="Hide Suggestion"
                   >
                     <X size={14} />
