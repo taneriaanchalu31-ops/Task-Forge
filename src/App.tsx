@@ -1,1128 +1,1516 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  LayoutDashboard, 
-  CheckSquare, 
-  Flame, 
-  Shield, 
-  Music, 
-  ShoppingBag, 
-  User as UserIcon, 
-  ChevronRight, 
-  Plus, 
-  Trash2, 
-  Star, 
-  Clock, 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  Award, 
-  Zap, 
-  Skull, 
-  Volume2, 
-  VolumeX,
-  X,
-  Menu,
-  AlertTriangle,
-  ExternalLink,
-  Edit2,
-  Camera,
-  Save,
-  RotateCw,
-  RefreshCw
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LayoutDashboard, ListTodo, Timer, ShoppingBag,
+  Flame, Sword, Zap, Target, BookOpen, Heart, Plus, Trash2, Check,
+  Play, Pause, Square, Clock, Volume2, Quote,
+  Coins, Lock, X, TrendingUp, Edit3, Music, AlertTriangle, Star,
+  ChevronRight, ChevronLeft, User, ExternalLink, RotateCcw
+} from 'lucide-react';
 
-// --- UTILS & CONSTANTS ---
-const COOLDOWN = 60 * 60 * 1000; 
+// ============================================
+// TYPES
+// ============================================
+type SoundType = 'rain' | 'ocean' | 'cafe' | 'white' | 'pink' | 'brown' | 'binaural';
+type ShopType = 'title' | 'avatar' | 'frame' | 'theme';
+type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
 
-function getOrCreateUserId() {
-  let id = localStorage.getItem('tf_user_id');
-  if (!id) {
-    id = 'user_' + Math.random().toString(36).substring(2, 11);
-    localStorage.setItem('tf_user_id', id);
-  }
-  return id;
+interface Hero {
+  name: string; level: number; xp: number; gold: number;
+  streakDays: number; lastActiveDate: string;
+  totalTasks: number; totalHabits: number; totalFocus: number; totalBosses: number;
+  profilePic: string | null;
+  userId: string;
+}
+interface Todo {
+  id: string; title: string; notes: string;
+  urgent: boolean; important: boolean;
+  completed: boolean; rewardClaimed: boolean;
+  createdAt: string; completedAt?: string;
+}
+interface Habit {
+  id: string; name: string; emoji: string; color: string;
+  streak: number; longestStreak: number;
+  completedDates: string[]; createdAt: string;
+  rewardedDates: string[];
+}
+interface Boss {
+  id: string; name: string; emoji: string;
+  level: number; maxHp: number; hp: number;
+  date: string; defeatCount: number;
+  rewardGold: number; rewardXp: number;
+}
+interface FocusSession { id: string; date: string; minutes: number; label: string; }
+interface ShopItem {
+  id: string; name: string; description: string;
+  type: ShopType; cost: number; icon: string;
+  rarity: Rarity; value: string;
+}
+interface Equipped { frame: string; theme: string; title: string; avatar: string; }
+interface Toast { id: string; message: string; icon: string; tone: string; }
+interface Verse { text: string; ref: string; }
+
+interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  tag: string;
+  spotifyId: string;
+  kind: 'playlist' | 'album' | 'track';
 }
 
-const UID = getOrCreateUserId();
-
-function useStored<T>(key: string, initial: T): [T, (val: T) => void] {
-  const fullKey = `${key}_${UID}`;
-  const [val, setVal] = useState<T>(() => {
-    const s = localStorage.getItem(fullKey);
-    if (!s) return initial;
-    try { return JSON.parse(s); } catch { return initial; }
-  });
-  const update = (v: T) => {
-    setVal(v);
-    localStorage.setItem(fullKey, JSON.stringify(v));
-  };
-  return [val, update];
-}
-
-const todayStr = () => new Date().toISOString().split('T')[0];
-
-const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
-
-// --- LOGO COMPONENT ---
+// ============================================
+// PURPLE SWORD LOGO COMPONENT
+// ============================================
 function SwordLogo({ size = 44 }: { size?: number }) {
   return (
-    <div 
+    <div
       className="rounded-full flex items-center justify-center relative overflow-hidden flex-shrink-0"
-      style={{ 
-        width: size, 
-        height: size, 
+      style={{
+        width: size, height: size,
         background: 'linear-gradient(135deg, #7C3AED, #A78BFA)',
-        boxShadow: '0 4px 20px rgba(124, 58, 237, 0.45)'
+        boxShadow: '0 4px 20px rgba(124, 58, 237, 0.55)',
       }}
+      aria-hidden
     >
-      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2L13.5 8.5L16 10L13.5 11.5L12 21L10.5 11.5L8 10L10.5 8.5L12 2Z" fill="white" />
-        <path d="M7 11H17V13H7V11Z" fill="white" />
-        <path d="M10 20H14V22H10V20Z" fill="white" />
+      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none">
+        <path d="M12 2 L13.2 9 L16 10.5 L13.2 11.2 L12 20 L10.8 11.2 L8 10.5 L10.8 9 Z" fill="white" />
+        <path d="M7 11.5 H17 V13.2 H7 Z" fill="white" />
+        <path d="M10.5 20 H13.5 V22 H10.5 Z" fill="white" />
       </svg>
     </div>
   );
 }
 
-// --- DATA ---
-const VERSES = [
+// ============================================
+// DATA
+// ============================================
+const VERSES: Verse[] = [
+  { text: "Whatever you do, work at it with all your heart, as working for the Lord.", ref: "Colossians 3:23" },
+  { text: "Commit to the Lord whatever you do, and he will establish your plans.", ref: "Proverbs 16:3" },
   { text: "I can do all things through Christ who strengthens me.", ref: "Philippians 4:13" },
-  { text: "Trust in the Lord with all your heart, lean not on your own understanding.", ref: "Proverbs 3:5" },
-  { text: "For I know the plans I have for you, declares the Lord.", ref: "Jeremiah 29:11" },
-  { text: "The Lord is my shepherd; I shall not want.", ref: "Psalm 23:1" },
-  { text: "But seek first the kingdom of God and his righteousness.", ref: "Matthew 6:33" },
-  { text: "Let all that you do be done in love.", ref: "1 Corinthians 16:14" },
+  { text: "Those who hope in the Lord will renew their strength.", ref: "Isaiah 40:31" },
   { text: "Be strong and courageous. Do not be afraid; do not be discouraged.", ref: "Joshua 1:9" },
-  { text: "The Lord is my light and my salvation—whom shall I fear?", ref: "Psalm 27:1" },
-  { text: "Faith is the assurance of things hoped for.", ref: "Hebrews 11:1" },
-  { text: "Rejoice always, pray without ceasing.", ref: "1 Thessalonians 5:16" },
-  { text: "Give thanks to the Lord, for he is good.", ref: "Psalm 107:1" },
+  { text: "Trust in the Lord with all your heart and lean not on your own understanding.", ref: "Proverbs 3:5-6" },
+  { text: "For God has not given us a spirit of fear, but of power, love, and a sound mind.", ref: "2 Timothy 1:7" },
+  { text: "All hard work brings a profit, but mere talk leads only to poverty.", ref: "Proverbs 14:23" },
+  { text: "The plans of the diligent lead to profit as surely as haste leads to poverty.", ref: "Proverbs 21:5" },
+  { text: "Whatever your hand finds to do, do it with all your might.", ref: "Ecclesiastes 9:10" },
   { text: "God is our refuge and strength, an ever-present help in trouble.", ref: "Psalm 46:1" },
+  { text: "My grace is sufficient for you, for my power is made perfect in weakness.", ref: "2 Corinthians 12:9" },
+  { text: "Let us not become weary in doing good, for at the proper time we will reap a harvest.", ref: "Galatians 6:9" },
+  { text: "The Lord is my shepherd, I lack nothing.", ref: "Psalm 23:1" },
   { text: "Peace I leave with you; my peace I give you.", ref: "John 14:27" },
-  { text: "A joyful heart is good medicine.", ref: "Proverbs 17:22" },
-  { text: "Your word is a lamp for my feet, a light on my path.", ref: "Psalm 119:105" }
+  { text: "Be still, and know that I am God.", ref: "Psalm 46:10" },
+  { text: "You will keep in perfect peace those whose minds are steadfast.", ref: "Isaiah 26:3" },
+  { text: "Come to me, all you who are weary and burdened, and I will give you rest.", ref: "Matthew 11:28" },
+  { text: "Cast all your anxiety on him because he cares for you.", ref: "1 Peter 5:7" },
+  { text: "For I know the plans I have for you, plans to prosper you and to give you hope.", ref: "Jeremiah 29:11" },
+  { text: "The steadfast love of the Lord never ceases; his mercies are new every morning.", ref: "Lamentations 3:22-23" },
+  { text: "In all these things we are more than conquerors through him who loved us.", ref: "Romans 8:37" },
+  { text: "I have fought the good fight, I have finished the race, I have kept the faith.", ref: "2 Timothy 4:7" },
+  { text: "Seek first the kingdom of God, and all these things will be added to you.", ref: "Matthew 6:33" },
+  { text: "Above all else, guard your heart, for everything you do flows from it.", ref: "Proverbs 4:23" },
+  { text: "If any of you lacks wisdom, you should ask God, who gives generously.", ref: "James 1:5" },
+  { text: "Your word is a lamp for my feet, a light on my path.", ref: "Psalm 119:105" },
 ];
 
-const EMOJIS = ["🔥","⭐","📖","💪","🥗","💧","🧘","🧠","🛠️","🎸","🎨","💻","🏃","🚶","🏀","⚽","🍎","🥦","🥑","🥛","🍵","☕","🌅","🌙","✨","⚡","💎","🎯","🏹","🛡️","🚀","🛸","🛸","🏔️","🌊","🌳","🌿","🌻","🕊️","🦁","🐺","🦊","🐾","🏠","🧹","🧺","💰","📈","📚","🖋️","🎹","🥁","🎷","🎺","🎻","🧘‍♀️","🛌","🚿","🦷","🧸"];
+const SHOP: ShopItem[] = [
+  { id: 't-novice', name: 'Novice', description: 'Every legend begins here.', type: 'title', cost: 0, icon: '📜', rarity: 'common', value: 'Novice' },
+  { id: 't-warrior', name: 'Warrior', description: 'Battle-tested and ready.', type: 'title', cost: 60, icon: '⚔️', rarity: 'common', value: 'Warrior' },
+  { id: 't-scholar', name: 'Scholar', description: 'Master of knowledge.', type: 'title', cost: 90, icon: '📚', rarity: 'common', value: 'Scholar' },
+  { id: 't-ranger', name: 'Ranger', description: 'Silent stalker of tasks.', type: 'title', cost: 120, icon: '🏹', rarity: 'common', value: 'Ranger' },
+  { id: 't-monk', name: 'Monk', description: 'Focus is your temple.', type: 'title', cost: 140, icon: '🧘', rarity: 'common', value: 'Monk' },
+  { id: 't-champion', name: 'Champion', description: 'Crusher of obstacles.', type: 'title', cost: 180, icon: '🏆', rarity: 'rare', value: 'Champion' },
+  { id: 't-shadow', name: 'Shadow Blade', description: 'Works in silence.', type: 'title', cost: 220, icon: '🗡️', rarity: 'rare', value: 'Shadow Blade' },
+  { id: 't-viking', name: 'Viking Chief', description: 'Fearless conqueror.', type: 'title', cost: 250, icon: '🛡️', rarity: 'rare', value: 'Viking Chief' },
+  { id: 't-samurai', name: 'Samurai', description: 'Honor bound warrior.', type: 'title', cost: 280, icon: '🎌', rarity: 'rare', value: 'Samurai' },
+  { id: 't-archmage', name: 'Archmage', description: 'Wielder of productivity arts.', type: 'title', cost: 300, icon: '🧙', rarity: 'epic', value: 'Archmage' },
+  { id: 't-phoenix', name: 'Phoenix Lord', description: 'Reborn from every failure.', type: 'title', cost: 380, icon: '🔥', rarity: 'epic', value: 'Phoenix Lord' },
+  { id: 't-void', name: 'Void Walker', description: 'Master of the impossible.', type: 'title', cost: 450, icon: '🌌', rarity: 'epic', value: 'Void Walker' },
+  { id: 't-dragonlord', name: 'Dragon Lord', description: 'Tamer of chaos.', type: 'title', cost: 500, icon: '🐉', rarity: 'epic', value: 'Dragon Lord' },
+  { id: 't-legend', name: 'Mythic Legend', description: 'Only true grinders reach here.', type: 'title', cost: 600, icon: '👑', rarity: 'legendary', value: 'Mythic Legend' },
+  { id: 't-god', name: 'Godslayer', description: 'You defeated the impossible.', type: 'title', cost: 900, icon: '⚡', rarity: 'legendary', value: 'Godslayer' },
+  { id: 't-immortal', name: 'The Immortal', description: 'Beyond death itself.', type: 'title', cost: 1100, icon: '💫', rarity: 'legendary', value: 'The Immortal' },
+  { id: 't-eternal', name: 'The Eternal One', description: 'Transcended reality.', type: 'title', cost: 1500, icon: '✨', rarity: 'mythic', value: 'The Eternal One' },
+  { id: 't-cosmic', name: 'Cosmic Emperor', description: 'Ruler of dimensions.', type: 'title', cost: 2000, icon: '🌠', rarity: 'mythic', value: 'Cosmic Emperor' },
 
-const SHOP = [
-  // Titles
-  { id: 't-novice', type: 'title', name: 'The Novice', rarity: 'common', price: 0 },
-  { id: 't-slayer', type: 'title', name: 'Goblin Slayer', rarity: 'uncommon', price: 150 },
-  { id: 't-knight', type: 'title', name: 'Holy Knight', rarity: 'rare', price: 400 },
-  { id: 't-grand', type: 'title', name: 'Grandmaster', rarity: 'epic', price: 900 },
-  { id: 't-saint', type: 'title', name: 'The Sainted', rarity: 'legendary', price: 2000 },
-  { id: 't-ethio', type: 'title', name: 'Lion of Judah', rarity: 'mythic', price: 5000 },
-  { id: 't-monk', type: 'title', name: 'Silent Monk', rarity: 'rare', price: 450 },
-  { id: 't-titan', type: 'title', name: 'Focus Titan', rarity: 'epic', price: 1100 },
-  { id: 't-seraph', type: 'title', name: 'Seraphim', rarity: 'mythic', price: 5500 },
-  { id: 't-conq', type: 'title', name: 'World Conqueror', rarity: 'legendary', price: 2500 },
-  { id: 't-scribe', type: 'title', name: 'Ancient Scribe', rarity: 'uncommon', price: 200 },
-  { id: 't-chosen', type: 'title', name: 'The Chosen', rarity: 'rare', price: 600 },
-  { id: 't-valor', type: 'title', name: 'Heart of Valor', rarity: 'epic', price: 1300 },
-  { id: 't-immortal', type: 'title', name: 'The Immortal', rarity: 'mythic', price: 10000 },
-  { id: 't-lofi', type: 'title', name: 'Lofi Scholar', rarity: 'common', price: 50 },
-  { id: 't-beast', type: 'title', name: 'The Beast', rarity: 'epic', price: 1500 },
-  { id: 't-king', type: 'title', name: 'High King', rarity: 'legendary', price: 3500 },
-  { id: 't-eternal', type: 'title', name: 'Eternal Soul', rarity: 'mythic', price: 8000 },
+  { id: 'a-fox', name: 'Swift Fox', description: 'Quick and cunning.', type: 'avatar', cost: 0, icon: '🦊', rarity: 'common', value: '🦊' },
+  { id: 'a-wolf', name: 'Lone Wolf', description: 'Fierce independence.', type: 'avatar', cost: 75, icon: '🐺', rarity: 'common', value: '🐺' },
+  { id: 'a-bear', name: 'Grizzly Bear', description: 'Raw strength.', type: 'avatar', cost: 90, icon: '🐻', rarity: 'common', value: '🐻' },
+  { id: 'a-panda', name: 'Zen Panda', description: 'Calm & focused.', type: 'avatar', cost: 95, icon: '🐼', rarity: 'common', value: '🐼' },
+  { id: 'a-owl', name: 'Wise Owl', description: 'Deep insight.', type: 'avatar', cost: 100, icon: '🦉', rarity: 'rare', value: '🦉' },
+  { id: 'a-eagle', name: 'Sky Eagle', description: 'Soars above obstacles.', type: 'avatar', cost: 120, icon: '🦅', rarity: 'rare', value: '🦅' },
+  { id: 'a-lion', name: 'Golden Lion', description: 'King of the hunt.', type: 'avatar', cost: 150, icon: '🦁', rarity: 'rare', value: '🦁' },
+  { id: 'a-tiger', name: 'Shadow Tiger', description: 'Silent predator.', type: 'avatar', cost: 180, icon: '🐯', rarity: 'rare', value: '🐯' },
+  { id: 'a-shark', name: 'Deep Shark', description: 'Never stops moving.', type: 'avatar', cost: 200, icon: '🦈', rarity: 'rare', value: '🦈' },
+  { id: 'a-robot', name: 'Focus Bot', description: 'Maximum efficiency.', type: 'avatar', cost: 220, icon: '🤖', rarity: 'epic', value: '🤖' },
+  { id: 'a-ninja', name: 'Silent Ninja', description: 'Strike and vanish.', type: 'avatar', cost: 260, icon: '🥷', rarity: 'epic', value: '🥷' },
+  { id: 'a-dragon', name: 'Solar Dragon', description: 'Unstoppable power.', type: 'avatar', cost: 280, icon: '🐉', rarity: 'epic', value: '🐉' },
+  { id: 'a-phoenix', name: 'Reborn Phoenix', description: 'Rises from ashes.', type: 'avatar', cost: 400, icon: '🔥', rarity: 'epic', value: '🔥' },
+  { id: 'a-wizard', name: 'Grand Wizard', description: 'Master of arcane arts.', type: 'avatar', cost: 450, icon: '🧙', rarity: 'epic', value: '🧙' },
+  { id: 'a-unicorn', name: 'Starlight Unicorn', description: 'Rare magical brilliance.', type: 'avatar', cost: 500, icon: '🦄', rarity: 'legendary', value: '🦄' },
+  { id: 'a-alien', name: 'Cosmic Alien', description: 'From another dimension.', type: 'avatar', cost: 650, icon: '👽', rarity: 'legendary', value: '👽' },
+  { id: 'a-angel', name: 'Guardian Angel', description: 'Heavenly protection.', type: 'avatar', cost: 750, icon: '😇', rarity: 'legendary', value: '😇' },
+  { id: 'a-crystal', name: 'Crystal Being', description: 'Made of pure focus.', type: 'avatar', cost: 800, icon: '💎', rarity: 'legendary', value: '💎' },
+  { id: 'a-galaxy', name: 'Galaxy Spirit', description: 'Transcendent existence.', type: 'avatar', cost: 1200, icon: '🌟', rarity: 'mythic', value: '🌟' },
+  { id: 'a-god', name: 'The Divine', description: 'Ultimate ascendance.', type: 'avatar', cost: 1800, icon: '☀️', rarity: 'mythic', value: '☀️' },
 
-  // Avatars
-  { id: 'a-fox', type: 'avatar', name: 'Swift Fox', rarity: 'common', price: 0 },
-  { id: 'a-wolf', type: 'avatar', name: 'Grey Wolf', rarity: 'uncommon', price: 200 },
-  { id: 'a-lion', type: 'avatar', name: 'Gold Lion', rarity: 'rare', price: 500 },
-  { id: 'a-eagle', type: 'avatar', name: 'Soaring Eagle', rarity: 'epic', price: 1200 },
-  { id: 'a-dragon', type: 'avatar', name: 'Ancient Drake', rarity: 'legendary', price: 3000 },
-  { id: 'a-angel', type: 'avatar', name: 'Guardian', rarity: 'mythic', price: 7000 },
-  { id: 'a-bear', type: 'avatar', name: 'Grizzly', rarity: 'uncommon', price: 250 },
-  { id: 'a-tiger', type: 'avatar', name: 'White Tiger', rarity: 'rare', price: 600 },
-  { id: 'a-owl', type: 'avatar', name: 'Wise Owl', rarity: 'common', price: 100 },
-  { id: 'a-phoenix', type: 'avatar', name: 'Firebird', rarity: 'legendary', price: 3500 },
-  { id: 'a-knight-1', type: 'avatar', name: 'Paladin', rarity: 'rare', price: 550 },
-  { id: 'a-mage', type: 'avatar', name: 'Arcane Mage', rarity: 'epic', price: 1400 },
-  { id: 'a-monk-1', type: 'avatar', name: 'Shaolin', rarity: 'rare', price: 650 },
-  { id: 'a-ronin', type: 'avatar', name: 'Ronin', rarity: 'epic', price: 1600 },
-  { id: 'a-valk', type: 'avatar', name: 'Valkyrie', rarity: 'legendary', price: 4000 },
-  { id: 'a-spirit', type: 'avatar', name: 'Blue Spirit', rarity: 'mythic', price: 9000 },
-  { id: 'a-cat', type: 'avatar', name: 'Void Cat', rarity: 'common', price: 150 },
-  { id: 'a-deer', type: 'avatar', name: 'Silver Stag', rarity: 'rare', price: 700 },
-  { id: 'a-hawk', type: 'avatar', name: 'Falcon', rarity: 'uncommon', price: 300 },
-  { id: 'a-god', type: 'avatar', name: 'The Creator', rarity: 'mythic', price: 15000 },
+  { id: 'f-none', name: 'Standard', description: 'Clean minimalist border.', type: 'frame', cost: 0, icon: '⬜', rarity: 'common', value: 'none' },
+  { id: 'f-bronze', name: 'Bronze Ring', description: 'Solid bronze border.', type: 'frame', cost: 50, icon: '🥉', rarity: 'common', value: 'bronze' },
+  { id: 'f-silver', name: 'Silver Crest', description: 'Polished silver ring.', type: 'frame', cost: 120, icon: '🥈', rarity: 'rare', value: 'silver' },
+  { id: 'f-emerald', name: 'Emerald Halo', description: "Nature's glow.", type: 'frame', cost: 180, icon: '🟢', rarity: 'rare', value: 'emerald' },
+  { id: 'f-ruby', name: 'Ruby Circle', description: 'Bright red border.', type: 'frame', cost: 220, icon: '🔴', rarity: 'rare', value: 'ruby' },
+  { id: 'f-sapphire', name: 'Sapphire Ring', description: 'Deep blue elegance.', type: 'frame', cost: 250, icon: '🔵', rarity: 'rare', value: 'sapphire' },
+  { id: 'f-gold', name: 'Gold Aegis', description: 'Gleaming brilliance.', type: 'frame', cost: 280, icon: '🥇', rarity: 'epic', value: 'gold' },
+  { id: 'f-fire', name: 'Inferno Ring', description: 'Radiating fire energy.', type: 'frame', cost: 350, icon: '🔥', rarity: 'epic', value: 'fire' },
+  { id: 'f-ice', name: 'Frost Halo', description: 'Cold and unbreakable.', type: 'frame', cost: 400, icon: '❄️', rarity: 'epic', value: 'ice' },
+  { id: 'f-thunder', name: 'Thunder Frame', description: 'Crackling lightning.', type: 'frame', cost: 450, icon: '⚡', rarity: 'epic', value: 'thunder' },
+  { id: 'f-diamond', name: 'Diamond Aura', description: 'Crystalline brilliance.', type: 'frame', cost: 550, icon: '💎', rarity: 'legendary', value: 'diamond' },
+  { id: 'f-cosmic', name: 'Cosmic Ring', description: 'Space-time frame.', type: 'frame', cost: 800, icon: '🌌', rarity: 'legendary', value: 'cosmic' },
+  { id: 'f-holy', name: 'Holy Halo', description: 'Divine sanctified glow.', type: 'frame', cost: 1000, icon: '😇', rarity: 'legendary', value: 'holy' },
+  { id: 'f-rainbow', name: 'Prism Halo', description: 'All colors, all power.', type: 'frame', cost: 1500, icon: '🌈', rarity: 'mythic', value: 'rainbow' },
 
-  // Frames
-  { id: 'f-none', type: 'frame', name: 'Simple Wood', rarity: 'common', price: 0 },
-  { id: 'f-steel', type: 'frame', name: 'Cold Steel', rarity: 'uncommon', price: 300 },
-  { id: 'f-gold', type: 'frame', name: 'Gilded Sun', rarity: 'rare', price: 750 },
-  { id: 'f-ruby', type: 'frame', name: 'Ruby Shard', rarity: 'epic', price: 1500 },
-  { id: 'f-diamond', type: 'frame', name: 'Frost Diamond', rarity: 'legendary', price: 4000 },
-  { id: 'f-nebula', type: 'frame', name: 'Nebula Flow', rarity: 'mythic', price: 8500 },
-  { id: 'f-nature', type: 'frame', name: 'Living Vine', rarity: 'rare', price: 800 },
-  { id: 'f-shadow', type: 'frame', name: 'Void Edge', rarity: 'epic', price: 1800 },
-  { id: 'f-royal', type: 'frame', name: 'Imperial', rarity: 'legendary', price: 4500 },
-  { id: 'f-holy', type: 'frame', name: 'Halo Burst', rarity: 'mythic', price: 9500 },
-  { id: 'f-copper', type: 'frame', name: 'Copper Gear', rarity: 'uncommon', price: 350 },
-  { id: 'f-obsid', type: 'frame', name: 'Obsidian', rarity: 'rare', price: 900 },
-  { id: 'f-prism', type: 'frame', name: 'Prism', rarity: 'epic', price: 2000 },
-  { id: 'f-dragon', type: 'frame', name: 'Dragon Scale', rarity: 'legendary', price: 5000 },
-
-  // Themes
-  { id: 'th-violet', type: 'theme', name: 'Royal Violet', rarity: 'common', price: 0 },
-  { id: 'th-emerald', type: 'theme', name: 'Forest Emerald', rarity: 'uncommon', price: 500 },
-  { id: 'th-amber', type: 'theme', name: 'Golden Amber', rarity: 'rare', price: 1000 },
-  { id: 'th-crimson', type: 'theme', name: 'Blood Crimson', rarity: 'epic', price: 2000 },
-  { id: 'th-ocean', type: 'theme', name: 'Deep Ocean', rarity: 'rare', price: 1200 },
-  { id: 'th-mono', type: 'theme', name: 'Obsidian', rarity: 'common', price: 100 },
-  { id: 'th-rose', type: 'theme', name: 'Pink Rose', rarity: 'rare', price: 1100 },
-  { id: 'th-cyber', type: 'theme', name: 'Cyber Neon', rarity: 'epic', price: 2500 },
-  { id: 'th-heaven', type: 'theme', name: 'Cloud White', rarity: 'legendary', price: 5000 },
-  { id: 'th-void', type: 'theme', name: 'The Void', rarity: 'mythic', price: 12000 },
-  { id: 'th-sunset', type: 'theme', name: 'Sunset', rarity: 'uncommon', price: 600 },
-  { id: 'th-mint', type: 'theme', name: 'Mint Leaf', rarity: 'uncommon', price: 550 },
-  { id: 'th-ice', type: 'theme', name: 'Glacier', rarity: 'rare', price: 1300 },
-  { id: 'th-gold', type: 'theme', name: 'Solid Gold', rarity: 'legendary', price: 6000 },
-  { id: 'th-nebula', type: 'theme', name: 'Deep Space', rarity: 'mythic', price: 15000 },
-  { id: 'th-lava', type: 'theme', name: 'Magma', rarity: 'epic', price: 2800 },
-  { id: 'th-coffee', type: 'theme', name: 'Espresso', rarity: 'common', price: 200 },
-  { id: 'th-dracula', type: 'theme', name: 'Vampire', rarity: 'rare', price: 1400 },
+  { id: 'th-violet', name: 'Nebula Violet', description: 'Royal cosmic purple.', type: 'theme', cost: 0, icon: '💜', rarity: 'common', value: 'violet' },
+  { id: 'th-cyan', name: 'Cyber Cyan', description: 'Futuristic blue.', type: 'theme', cost: 60, icon: '💎', rarity: 'common', value: 'cyan' },
+  { id: 'th-emerald', name: 'Emerald Forest', description: 'Vital green energy.', type: 'theme', cost: 60, icon: '💚', rarity: 'common', value: 'emerald' },
+  { id: 'th-amber', name: 'Solar Amber', description: 'Golden warmth.', type: 'theme', cost: 90, icon: '🌟', rarity: 'rare', value: 'amber' },
+  { id: 'th-rose', name: 'Neon Rose', description: 'Passionate fire.', type: 'theme', cost: 90, icon: '🌹', rarity: 'rare', value: 'rose' },
+  { id: 'th-sky', name: 'Sky Blue', description: 'Limitless horizons.', type: 'theme', cost: 100, icon: '🩵', rarity: 'rare', value: 'sky' },
+  { id: 'th-lime', name: 'Toxic Lime', description: 'Electric green.', type: 'theme', cost: 100, icon: '🟢', rarity: 'rare', value: 'lime' },
+  { id: 'th-teal', name: 'Ocean Teal', description: 'Balanced calm.', type: 'theme', cost: 110, icon: '🌊', rarity: 'rare', value: 'teal' },
+  { id: 'th-orange', name: 'Sunset Orange', description: 'Warm evening glow.', type: 'theme', cost: 120, icon: '🧡', rarity: 'rare', value: 'orange' },
+  { id: 'th-indigo', name: 'Deep Indigo', description: 'Cosmic depths.', type: 'theme', cost: 130, icon: '🔮', rarity: 'epic', value: 'indigo' },
+  { id: 'th-fuchsia', name: 'Neon Fuchsia', description: 'Bold electric pink.', type: 'theme', cost: 180, icon: '💗', rarity: 'epic', value: 'fuchsia' },
+  { id: 'th-crimson', name: 'Blood Crimson', description: 'Maximum intensity.', type: 'theme', cost: 220, icon: '❤️‍🔥', rarity: 'epic', value: 'crimson' },
+  { id: 'th-jade', name: 'Imperial Jade', description: 'Ancient wealth.', type: 'theme', cost: 260, icon: '🟩', rarity: 'epic', value: 'jade' },
+  { id: 'th-mint', name: 'Mint Frost', description: 'Cool refreshing tone.', type: 'theme', cost: 350, icon: '🧊', rarity: 'legendary', value: 'mint' },
+  { id: 'th-gold', name: 'Royal Gold', description: 'Wealth and power.', type: 'theme', cost: 400, icon: '👑', rarity: 'legendary', value: 'gold' },
+  { id: 'th-platinum', name: 'Platinum White', description: 'Ultimate purity.', type: 'theme', cost: 600, icon: '⚪', rarity: 'legendary', value: 'platinum' },
+  { id: 'th-void', name: 'Void Black', description: 'Deep space aura.', type: 'theme', cost: 900, icon: '🌑', rarity: 'mythic', value: 'void' },
+  { id: 'th-prism', name: 'Prism Aurora', description: 'Ever-shifting colors.', type: 'theme', cost: 1500, icon: '🌈', rarity: 'mythic', value: 'prism' },
 ];
 
 const BOSSES = [
-  { name: 'Sloth Demon', img: '🦥' },
-  { name: 'Procrastination King', img: '👑' },
-  { name: 'Distraction Hydra', img: '🐍' },
-  { name: 'Chaos Elemental', img: '🌀' },
-  { name: 'Doubt Shadow', img: '👤' },
-  { name: 'Time Thief', img: '⏳' },
-];
-
-const SPOTIFY_PLAYLISTS = [
-  { id: '0vvXsWCc8UbPnJsJQ6COjM', name: 'Lofi Study', category: 'Lofi' },
-  { id: '37i9dQZF1DWWQRwui0ExPn', name: 'Chill Lofi', category: 'Lofi' },
-  { id: '37i9dQZF1DXbITWG1ZJKYt', name: 'Smooth Jazz', category: 'Jazz' },
-  { id: '37i9dQZF1DX0SM0LYsmbMT', name: 'Jazz Vibes', category: 'Jazz' },
-  { id: '37i9dQZF1DX2sUQwCrRBp3', name: 'Christian Worship', category: 'Christian' },
-  { id: '37i9dQZF1DWVYgqMRn8LPz', name: 'Worship Focus', category: 'Christian' },
-  { id: '37i9dQZF1DWU0sBdra9L8j', name: 'Gospel Choirs', category: 'Christian' },
-  { id: '37i9dQZF1DWYkaFifGgcCR', name: 'Ethiopian 🇪🇹', category: 'Ethiopian' },
-  { id: '37i9dQZF1DWYV7OOteHjSD', name: 'African Gospel', category: 'Ethiopian' },
-  { id: '37i9dQZF1DX4sWSpwq3LiO', name: 'Peaceful Piano', category: 'Piano' },
-  { id: '37i9dQZF1DWWEJlAGA9gs0', name: 'Classical Study', category: 'Classical' },
-  { id: '37i9dQZF1DX4aYNO8X5RpR', name: 'Nature Sounds', category: 'Nature' },
-  { id: '37i9dQZF1DXbcPC6Vvqudd', name: 'Rain Sounds', category: 'Nature' },
-  { id: '37i9dQZF1DXdLEN7aqioXM', name: 'Synthwave', category: 'Electronic' },
-  { id: '37i9dQZF1DWZeKCadgRdKQ', name: 'Deep Focus', category: 'Focus' },
-  { id: '37i9dQZF1DX9sIqqvKsj3N', name: 'Instrumental', category: 'Focus' },
+  { name: 'The Procrastinator', emoji: '👹' },
+  { name: 'Deadline Beast', emoji: '🐉' },
+  { name: 'Distraction Lord', emoji: '👻' },
+  { name: 'The Time Eater', emoji: '⏳' },
+  { name: 'Chaos Titan', emoji: '⚔️' },
+  { name: 'Entropy Wraith', emoji: '💀' },
 ];
 
 const FOCUS_PRESETS = [
-  { label: 'Quick 10', mins: 10 },
-  { label: 'Sprint 25', mins: 25 },
-  { label: 'Deep 50', mins: 50 },
-  { label: 'Marathon 90', mins: 90 },
+  { label: 'Quick', minutes: 10 },
+  { label: 'Sprint', minutes: 25 },
+  { label: 'Deep Work', minutes: 50 },
+  { label: 'Marathon', minutes: 90 },
 ];
 
-// --- SOUND ENGINE ---
-type SoundType = 'rain' | 'ocean' | 'cafe' | 'white' | 'pink' | 'brown' | 'binaural';
-class FocusAudio {
-  private ctx: AudioContext | null = null;
-  private nodes: Map<SoundType, { gain: GainNode; source: AudioNode }> = new Map();
+const SPOTIFY_PLAYLISTS: SpotifyPlaylist[] = [
+  { id: 'lofi', name: 'Lofi Focus Beats', tag: 'Lofi', spotifyId: '0vvXsWCc8UbPnJsJQ6COjM', kind: 'playlist' },
+  { id: 'lofi2', name: 'Chill Lofi Study', tag: 'Lofi', spotifyId: '37i9dQZF1DWWQRwui0ExPn', kind: 'playlist' },
+  { id: 'jazz', name: 'Smooth Jazz', tag: 'Jazz', spotifyId: '37i9dQZF1DXbITWG1ZJKYt', kind: 'playlist' },
+  { id: 'jazz2', name: 'Jazz Vibes', tag: 'Jazz', spotifyId: '37i9dQZF1DX0SM0LYsmbMT', kind: 'playlist' },
+  { id: 'christian', name: 'Christian Worship', tag: 'Christian', spotifyId: '37i9dQZF1DX2sUQwCrRBp3', kind: 'playlist' },
+  { id: 'worship', name: 'Worship Focus', tag: 'Christian', spotifyId: '37i9dQZF1DWVYgqMRn8LPz', kind: 'playlist' },
+  { id: 'gospel', name: 'Gospel & Praise', tag: 'Christian', spotifyId: '37i9dQZF1DWU0sBdra9L8j', kind: 'playlist' },
+  { id: 'ethio', name: 'Ethiopian Music 🇪🇹', tag: 'Ethiopian', spotifyId: '37i9dQZF1DWYkaFifGgcCR', kind: 'playlist' },
+  { id: 'african-gospel', name: 'African Gospel', tag: 'Christian', spotifyId: '37i9dQZF1DWYV7OOteHjSD', kind: 'playlist' },
+  { id: 'piano', name: 'Peaceful Piano', tag: 'Piano', spotifyId: '37i9dQZF1DX4sWSpwq3LiO', kind: 'playlist' },
+  { id: 'classical', name: 'Classical Focus', tag: 'Classical', spotifyId: '37i9dQZF1DWWEJlAGA9gs0', kind: 'playlist' },
+  { id: 'nature', name: 'Nature Sounds', tag: 'Nature', spotifyId: '37i9dQZF1DX4aYNO8X5RpR', kind: 'playlist' },
+  { id: 'rain', name: 'Rain Sounds', tag: 'Nature', spotifyId: '37i9dQZF1DXbcPC6Vvqudd', kind: 'playlist' },
+  { id: 'synth', name: 'Synthwave', tag: 'Synth', spotifyId: '37i9dQZF1DXdLEN7aqioXM', kind: 'playlist' },
+  { id: 'deep-focus', name: 'Deep Focus', tag: 'Focus', spotifyId: '37i9dQZF1DWZeKCadgRdKQ', kind: 'playlist' },
+  { id: 'instrumental', name: 'Instrumental Study', tag: 'Focus', spotifyId: '37i9dQZF1DX9sIqqvKsj3N', kind: 'playlist' },
+];
 
-  private init() {
-    if (!this.ctx) this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  }
+const EMOJIS = [
+  '💧','🏋️','📖','🧘','🥗','💤','🎯','✍️','🏃','💻','🌅','🧠','🍎','📝','🎨','🎵','🧹','☕','🌱','⭐',
+  '🔥','💪','🚀','🌊','🌙','🍵','📱','💊','🎮','🎸','🚴','🏊','🥑','🧴','🕯️','📞','🥋','🏄','🎤','🕊️',
+  '💰','📷','🎬','🌸','🌻','🍀','🎪','🎁','🎳','🎨','🖌️','📚','🔬','🎓','🏅','⚽','🏀','🎾','⛹️','🎯'
+];
 
-  toggle(type: SoundType, volume: number) {
-    this.init();
-    if (this.nodes.has(type)) {
-      const { gain } = this.nodes.get(type)!;
-      gain.gain.linearRampToValueAtTime(0, this.ctx!.currentTime + 0.5);
-      setTimeout(() => {
-        this.nodes.get(type)?.source.disconnect();
-        this.nodes.delete(type);
-      }, 600);
-    } else {
-      const gain = this.ctx!.createGain();
-      gain.gain.setValueAtTime(0, this.ctx!.currentTime);
-      gain.connect(this.ctx!.destination);
-      gain.gain.linearRampToValueAtTime(volume, this.ctx!.currentTime + 1);
-      
-      const source = this.createNode(type);
-      source.connect(gain);
-      this.nodes.set(type, { gain, source });
-    }
-  }
+const COOLDOWN = 60 * 60 * 1000;
 
-  updateVolume(type: SoundType, volume: number) {
-    if (this.nodes.has(type)) {
-      this.nodes.get(type)!.gain.gain.setTargetAtTime(volume, this.ctx!.currentTime, 0.1);
-    }
-  }
+// ============================================
+// UTILITIES
+// ============================================
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
-  private createNode(type: SoundType): AudioNode {
-    const bufferSize = 2 * this.ctx!.sampleRate;
-    const node = this.ctx!.createScriptProcessor(bufferSize, 1, 1);
-    
-    if (type === 'white' || type === 'pink' || type === 'brown' || type === 'rain' || type === 'ocean' || type === 'cafe') {
-      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0; // For pink
-      let lastOut = 0; // For brown/ocean
-      
-      node.onaudioprocess = (e) => {
-        const out = e.outputBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          const white = Math.random() * 2 - 1;
-          if (type === 'white') out[i] = white;
-          else if (type === 'pink') {
-            b0 = 0.99886 * b0 + white * 0.0555179;
-            b1 = 0.99332 * b1 + white * 0.0750759;
-            b2 = 0.96900 * b2 + white * 0.1538520;
-            b3 = 0.86650 * b3 + white * 0.3104856;
-            b4 = 0.55000 * b4 + white * 0.5329522;
-            b5 = -0.7616 * b5 - white * 0.0168980;
-            out[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-            out[i] *= 0.11;
-            b6 = white * 0.115926;
-          } else if (type === 'brown' || type === 'ocean') {
-            const softness = type === 'ocean' ? 0.03 : 0.02;
-            lastOut = (lastOut + (softness * white)) / 1.02;
-            out[i] = lastOut * 3.5;
-            if (type === 'ocean') out[i] *= (0.5 + 0.5 * Math.sin(i / 10000));
-          } else if (type === 'rain') {
-            lastOut = (lastOut + (0.04 * white)) / 1.01;
-            out[i] = (lastOut + (Math.random() > 0.98 ? white * 0.2 : 0)) * 0.5;
-          } else if (type === 'cafe') {
-            lastOut = (lastOut + (0.02 * white)) / 1.01;
-            const chatter = Math.sin(i / 50) * 0.02 * Math.random();
-            out[i] = lastOut + chatter;
-          }
-        }
-      };
-      return node;
-    } else {
-      const osc1 = this.ctx!.createOscillator();
-      const osc2 = this.ctx!.createOscillator();
-      osc1.type = 'sine'; osc2.type = 'sine';
-      osc1.frequency.value = 100; 
-      osc2.frequency.value = 110; 
-      osc1.start(); osc2.start();
-      const m = this.ctx!.createGain();
-      osc1.connect(m); osc2.connect(m);
-      return m;
-    }
-  }
-}
-const audioMgr = new FocusAudio();
-
-// --- COMPONENTS ---
-
-const Notification = ({ msg, onClear }: { msg: string, onClear: () => void }) => {
-  useEffect(() => { const t = setTimeout(onClear, 3000); return () => clearTimeout(t); }, [onClear]);
-  return (
-    <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
-      className="fixed bottom-24 right-6 bg-violet-600 text-white px-6 py-3 rounded-2xl shadow-xl z-50 flex items-center gap-3 border border-violet-400/30">
-      <Award className="text-yellow-300" /> {msg}
-    </motion.div>
-  );
+const todayStr = (d = new Date()) => {
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
 };
 
-function makeBoss(defeatCount: number, heroLevel: number) {
-  const template = BOSSES[defeatCount % BOSSES.length];
-  const lvl = Math.max(1, heroLevel + defeatCount);
-  const hp = Math.round(90 + lvl * 35);
-  return { 
-    ...template, 
-    level: lvl, 
-    hp, 
-    maxHp: hp, 
-    rewardGold: Math.round(30 + lvl * 8), 
-    rewardXp: Math.round(40 + lvl * 10),
-    defeatCount
+const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
+
+const computeStreak = (dates: string[]) => {
+  if (!dates.length) return 0;
+  const set = new Set(dates);
+  const today = todayStr();
+  const cursor = new Date();
+  if (!set.has(today)) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!set.has(todayStr(cursor))) return 0;
+  }
+  let streak = 0;
+  while (set.has(todayStr(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+};
+
+const formatTime = (s: number) => {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+};
+
+const themeAccent = (t: string): string => {
+  const map: Record<string, string> = {
+    violet: '#8B5CF6', cyan: '#06B6D4', emerald: '#10B981',
+    rose: '#F43F5E', amber: '#F59E0B', indigo: '#6366F1',
+    teal: '#14B8A6', fuchsia: '#D946EF', sky: '#0EA5E9',
+    lime: '#84CC16', crimson: '#DC2626', gold: '#EAB308',
+    mint: '#5EEAD4', void: '#6B7280', orange: '#F97316',
+    jade: '#059669', platinum: '#E5E7EB', prism: '#EC4899',
   };
+  return map[t] || map.violet;
+};
+
+const rarityColor = (r: Rarity): string => ({
+  common: '#9CA3AF', rare: '#60A5FA', epic: '#A78BFA',
+  legendary: '#FBBF24', mythic: '#F472B6'
+}[r]);
+
+const spotifyEmbedUrl = (p: SpotifyPlaylist) =>
+  `https://open.spotify.com/embed/${p.kind}/${p.spotifyId}?utm_source=generator&theme=0`;
+
+// ============================================
+// AUDIO ENGINE
+// ============================================
+class AudioEngine {
+  ctx: AudioContext | null = null;
+  master: GainNode | null = null;
+  layers = new Map<SoundType, { vol: number; nodes: AudioNode[]; sources: AudioNode[] }>();
+
+  init() {
+    if (!this.ctx || this.ctx.state === 'closed') {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.6;
+      this.master.connect(this.ctx.destination);
+    }
+    return this.ctx;
+  }
+
+  async start(type: SoundType, vol = 0.5) {
+    const ctx = this.init();
+    if (ctx.state === 'suspended') await ctx.resume();
+    this.stop(type);
+
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    g.connect(this.master!);
+    const nodes: AudioNode[] = [g];
+    const sources: AudioNode[] = [];
+
+    const noise = (secs: number) => {
+      const buf = ctx.createBuffer(2, ctx.sampleRate * secs, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.3;
+      }
+      return buf;
+    };
+
+    if (type === 'rain' || type === 'ocean' || type === 'cafe' || type === 'white' || type === 'pink' || type === 'brown') {
+      const src = ctx.createBufferSource();
+      src.buffer = noise(type === 'ocean' ? 4 : 2);
+      src.loop = true;
+      if (type === 'brown') {
+        const b = src.buffer.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < b.length; i++) { last = (last + 0.02 * b[i]) / 1.02; b[i] = last * 2.5; }
+      }
+      if (type !== 'white' && type !== 'brown') {
+        const f = ctx.createBiquadFilter();
+        f.type = type === 'cafe' ? 'bandpass' : 'lowpass';
+        f.frequency.value = type === 'rain' ? 1200 : type === 'ocean' ? 500 : 850;
+        src.connect(f); f.connect(g);
+        nodes.push(f);
+      } else {
+        src.connect(g);
+      }
+      src.start();
+      sources.push(src);
+    } else if (type === 'binaural') {
+      const oL = ctx.createOscillator();
+      const oR = ctx.createOscillator();
+      oL.frequency.value = 210;
+      oR.frequency.value = 220;
+      const m = ctx.createChannelMerger(2);
+      oL.connect(m, 0, 0); oR.connect(m, 0, 1);
+      m.connect(g);
+      oL.start(); oR.start();
+      sources.push(oL, oR); nodes.push(m);
+    }
+
+    g.gain.setTargetAtTime(vol, ctx.currentTime, 0.2);
+    this.layers.set(type, { vol, nodes, sources });
+  }
+
+  stop(type: SoundType) {
+    const l = this.layers.get(type);
+    if (!l) return;
+    l.sources.forEach(s => { try { (s as any).stop(); } catch {} try { s.disconnect(); } catch {} });
+    l.nodes.forEach(n => { try { n.disconnect(); } catch {} });
+    this.layers.delete(type);
+  }
+
+  stopAll() { Array.from(this.layers.keys()).forEach(k => this.stop(k)); }
 }
 
-export default function TaskForge() {
-  const [activeTab, setActiveTab] = useStored('tf_tab_v4', 'dash');
-  const [hero, setHero] = useStored('tf_hero_v4', { 
-    name: 'Hero', level: 1, xp: 0, gold: 40, streak: 1, lastLogin: todayStr() 
+const engine = new AudioEngine();
+
+// ============================================
+// PERSISTENCE
+// ============================================
+const getOrCreateUserId = (): string => {
+  try {
+    let id = localStorage.getItem('tf_user_id');
+    if (!id) {
+      id = 'user_' + uid();
+      localStorage.setItem('tf_user_id', id);
+    }
+    return id;
+  } catch {
+    return 'user_' + uid();
+  }
+};
+
+const useStored = <T,>(key: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  const userKey = `${key}_${getOrCreateUserId()}`;
+  const [val, setVal] = useState<T>(() => {
+    try {
+      const s = localStorage.getItem(userKey);
+      return s ? JSON.parse(s) : initial;
+    } catch { return initial; }
   });
-  const [eq, setEq] = useStored('tf_eq_v4', { 
-    frame: 'f-none', theme: 'th-violet', title: 't-novice', avatar: 'a-fox' 
+  useEffect(() => {
+    try { localStorage.setItem(userKey, JSON.stringify(val)); } catch {}
+  }, [userKey, val]);
+  return [val, setVal];
+};
+
+const makeBoss = (heroLevel: number, defeatCount: number): Boss => {
+  const t = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+  const lvl = Math.max(1, heroLevel + defeatCount);
+  const hp = Math.round(90 + lvl * 35);
+  return {
+    id: uid(), name: t.name, emoji: t.emoji,
+    level: lvl, maxHp: hp, hp, date: todayStr(),
+    defeatCount, rewardGold: Math.round(30 + lvl * 8), rewardXp: Math.round(40 + lvl * 10),
+  };
+};
+
+// ============================================
+// MAIN APP
+// ============================================
+export default function App() {
+  const [tab, setTab] = useState<'dash' | 'habits' | 'todos' | 'focus' | 'loot'>('dash');
+  const [showTut, setShowTut] = useStored<boolean>('tf_show_tutorial', true);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
+
+  useEffect(() => {
+    if (showTut) setShowTutorialModal(true);
+  }, []);
+
+  const [hero, setHero] = useStored<Hero>('tf_hero_v4', {
+    name: 'Hero', level: 1, xp: 0, gold: 40,
+    streakDays: 1, lastActiveDate: todayStr(),
+    totalTasks: 0, totalHabits: 0, totalFocus: 0, totalBosses: 0,
+    profilePic: null, userId: getOrCreateUserId(),
   });
-  const [inv, setInv] = useStored('tf_inv_v4', ['t-novice', 'a-fox', 'f-none', 'th-violet']);
-  const [habits, setHabits] = useStored<any[]>('tf_habits_v4', []);
-  const [todos, setTodos] = useStored<any[]>('tf_todos_v4', []);
-  const [boss, setBoss] = useStored('tf_boss_v4', makeBoss(0, 1));
-  const [logs, setLogs] = useState<string[]>([]);
-  const [notif, setNotif] = useState<string | null>(null);
-  const [showTut, setShowTut] = useStored('tf_show_tutorial', true);
-  const [tutStep, setTutStep] = useState(0);
-  const [lastAtk, setLastAtk] = useStored('tf_atk_v4', 0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // New Focus States
-  const [hiddenPlaylists, setHiddenPlaylists] = useStored<string[]>('tf_hidden_spotify_v1', []);
-  const [customPlaylists, setCustomPlaylists] = useStored<any[]>('tf_custom_spotify_v1', []);
 
-  const touch = () => setHero({ ...hero });
+  const [equipped, setEquipped] = useStored<Equipped>('tf_eq_v4', {
+    frame: 'f-none', theme: 'th-violet', title: 't-novice', avatar: 'a-fox',
+  });
 
-  const grantXp = (amt: number) => {
-    let newXp = hero.xp + amt;
-    let newLvl = hero.level;
-    let bonusGold = 0;
-    while (newXp >= xpForLevel(newLvl)) {
-      newXp -= xpForLevel(newLvl);
-      newLvl++;
-      bonusGold += 25;
-    }
-    setHero({ ...hero, level: newLvl, xp: newXp, gold: hero.gold + bonusGold });
-    if (bonusGold > 0) setNotif(`LEVEL UP! Reached lvl ${newLvl}. +${bonusGold} Gold!`);
+  const [inventory, setInventory] = useStored<string[]>('tf_inv_v4',
+    ['t-novice', 'a-fox', 'f-none', 'th-violet']);
+
+  const [habits, setHabits] = useStored<Habit[]>('tf_habits_v4', []);
+  const [todos, setTodos] = useStored<Todo[]>('tf_todos_v4', []);
+  const [boss, setBoss] = useStored<Boss>('tf_boss_v4', makeBoss(1, 0));
+  const [sessions, setSessions] = useStored<FocusSession[]>('tf_sess_v4', []);
+  const [lastAtk, setLastAtk] = useStored<number>('tf_atk_v4', 0);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const themeName = SHOP.find(s => s.id === equipped.theme)?.value || 'violet';
+  const accent = themeAccent(themeName);
+
+  const notify = useCallback((msg: string, icon: string, tone = 'info') => {
+    const t: Toast = { id: uid(), message: msg, icon, tone };
+    setToasts(p => [t, ...p].slice(0, 3));
+    setTimeout(() => setToasts(p => p.filter(x => x.id !== t.id)), 3200);
+  }, []);
+
+  const touch = useCallback(() => {
+    const today = todayStr();
+    setHero(h => {
+      if (h.lastActiveDate === today) return h;
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      const newStreak = h.lastActiveDate === todayStr(y) ? h.streakDays + 1 : 1;
+      return { ...h, lastActiveDate: today, streakDays: newStreak };
+    });
+  }, [setHero]);
+
+  const grantXp = useCallback((amt: number) => {
+    setHero(h => {
+      let { level, xp } = h; xp += amt;
+      let leveled = false;
+      while (xp >= xpForLevel(level)) { xp -= xpForLevel(level); level++; leveled = true; }
+      if (leveled) setTimeout(() => notify(`⬆️ Level Up! Now Level ${level}!`, '✨', 'levelup'), 100);
+      return { ...h, level, xp, gold: h.gold + (leveled ? 25 : 0) };
+    });
+  }, [setHero, notify]);
+
+  const grantGold = useCallback((a: number) => setHero(h => ({ ...h, gold: Math.max(0, h.gold + a) })), [setHero]);
+
+  const damageBoss = useCallback((dmg: number) => {
+    setBoss(b => {
+      const newHp = Math.max(0, b.hp - dmg);
+      if (newHp === 0 && b.hp > 0) {
+        setTimeout(() => {
+          notify(`💀 Boss slain: ${b.name}! +${b.rewardXp} XP, +${b.rewardGold} Gold`, '💀', 'boss');
+          grantXp(b.rewardXp); grantGold(b.rewardGold);
+          setHero(h => ({ ...h, totalBosses: h.totalBosses + 1 }));
+        }, 100);
+        return makeBoss(hero.level, b.defeatCount + 1);
+      }
+      return { ...b, hp: newHp };
+    });
+  }, [hero.level, setBoss, setHero, grantXp, grantGold, notify]);
+
+  const quickAtk = () => {
+    const now = Date.now();
+    if (now - lastAtk < COOLDOWN) return;
+    setLastAtk(now);
+    const dmg = 12 + hero.level * 4;
+    damageBoss(dmg);
+    grantXp(15);
+    notify(`⚡ Quick Attack! -${dmg} HP`, '⚡', 'success');
   };
 
-  const grantGold = (amt: number) => setHero(h => ({ ...h, gold: h.gold + amt }));
-
-  const damageBoss = (dmg: number) => {
-    const newHp = Math.max(0, boss.hp - dmg);
-    if (newHp === 0) {
-      setNotif(`VICTORY! Defeated ${boss.name}! +${boss.rewardGold} Gold.`);
-      grantGold(boss.rewardGold);
-      grantXp(boss.rewardXp);
-      setBoss(makeBoss(boss.defeatCount + 1, hero.level));
-    } else {
-      setBoss({ ...boss, hp: newHp });
-    }
+  const completeTask = (id: string) => {
+    setTodos(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      if (t.rewardClaimed) return { ...t, completed: true, completedAt: todayStr() };
+      const xp = t.important ? 30 : 20;
+      const gold = t.important ? 12 : 8;
+      grantXp(xp); grantGold(gold);
+      damageBoss(t.important ? 15 : 10);
+      touch();
+      setHero(h => ({ ...h, totalTasks: h.totalTasks + 1 }));
+      notify(`✅ Quest done! +${xp} XP, +${gold} Gold`, '✅', 'success');
+      return { ...t, completed: true, completedAt: todayStr(), rewardClaimed: true };
+    }));
   };
 
-  const dailyReset = () => {
-    const t = todayStr();
-    if (hero.lastLogin !== t) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yStr = yesterday.toISOString().split('T')[0];
-      const newStreak = (hero.lastLogin === yStr) ? hero.streak + 1 : 1;
-      setHero({ ...hero, streak: newStreak, lastLogin: t });
-    }
+  const uncompleteTask = (id: string) => setTodos(prev => prev.map(t => t.id !== id ? t : { ...t, completed: false }));
+  const deleteTask = (id: string) => setTodos(prev => prev.filter(t => t.id !== id));
+  const addTask = (title: string, notes: string, urgent: boolean, important: boolean) => {
+    if (!title.trim()) return;
+    setTodos(p => [{
+      id: uid(), title: title.trim(), notes: notes.trim(),
+      urgent, important, completed: false, rewardClaimed: false, createdAt: todayStr(),
+    }, ...p]);
+    notify(`New quest added!`, '📜', 'info');
   };
-  useEffect(dailyReset, []);
 
-  const themeColor = useMemo(() => {
-    const themes: any = {
-      'th-violet': 'from-violet-600 to-indigo-700',
-      'th-emerald': 'from-emerald-600 to-teal-700',
-      'th-amber': 'from-amber-500 to-orange-600',
-      'th-crimson': 'from-red-600 to-rose-700',
-      'th-ocean': 'from-blue-500 to-cyan-600',
-      'th-mono': 'from-gray-700 to-slate-900',
-      'th-rose': 'from-pink-500 to-rose-400',
-      'th-cyber': 'from-fuchsia-600 to-blue-500',
-      'th-heaven': 'from-blue-200 to-indigo-300',
-      'th-void': 'from-purple-900 to-black',
-      'th-sunset': 'from-orange-400 to-red-500',
-      'th-mint': 'from-green-300 to-emerald-500',
-      'th-ice': 'from-cyan-200 to-blue-400',
-      'th-gold': 'from-yellow-400 to-amber-600',
-      'th-nebula': 'from-indigo-600 to-purple-800',
-      'th-lava': 'from-orange-700 to-red-800',
-      'th-coffee': 'from-stone-600 to-orange-900',
-      'th-dracula': 'from-purple-900 to-red-900',
+  const toggleHabit = (id: string) => {
+    const today = todayStr();
+    setHabits(prev => prev.map(h => {
+      if (h.id !== id) return h;
+      const isDone = h.completedDates.includes(today);
+      if (isDone) {
+        const newDates = h.completedDates.filter(d => d !== today);
+        return { ...h, completedDates: newDates, streak: computeStreak(newDates) };
+      } else {
+        const newDates = [...h.completedDates, today];
+        const newStreak = computeStreak(newDates);
+        const alreadyRewarded = h.rewardedDates?.includes(today);
+        if (!alreadyRewarded) {
+          grantXp(20); grantGold(8);
+          damageBoss(10); touch();
+          setHero(hero => ({ ...hero, totalHabits: hero.totalHabits + 1 }));
+          notify(`🔥 ${h.emoji} ${h.name} +20 XP`, '🔥', 'success');
+        } else {
+          notify(`✓ ${h.name} re-checked (no reward)`, '✓', 'info');
+        }
+        return {
+          ...h,
+          completedDates: newDates,
+          streak: newStreak,
+          longestStreak: Math.max(h.longestStreak, newStreak),
+          rewardedDates: alreadyRewarded ? h.rewardedDates : [...(h.rewardedDates || []), today],
+        };
+      }
+    }));
+  };
+
+  const deleteHabit = (id: string) => setHabits(p => p.filter(h => h.id !== id));
+  const addHabit = (name: string, emoji: string, color: string) => {
+    if (!name.trim()) return;
+    setHabits(p => [{
+      id: uid(), name: name.trim(), emoji, color,
+      streak: 0, longestStreak: 0, completedDates: [], rewardedDates: [], createdAt: todayStr(),
+    }, ...p]);
+    notify(`New habit forged!`, '🔥', 'info');
+  };
+
+  const focusFinish = (mins: number, label: string) => {
+    setSessions(p => [{ id: uid(), date: todayStr(), minutes: mins, label }, ...p]);
+    const xp = mins * 2; const gold = Math.round(mins * 0.8);
+    grantXp(xp); grantGold(gold);
+    damageBoss(Math.round(mins * 0.6));
+    touch();
+    setHero(h => ({ ...h, totalFocus: h.totalFocus + mins }));
+    notify(`⏱️ ${mins}m focus +${xp} XP`, '⏱️', 'success');
+  };
+
+  const buyItem = (item: ShopItem) => {
+    if (inventory.includes(item.id)) return;
+    if (hero.gold < item.cost) { notify('Not enough gold!', '⚠️', 'info'); return; }
+    setHero(h => ({ ...h, gold: h.gold - item.cost }));
+    setInventory(i => [...i, item.id]);
+    notify(`🛒 Unlocked: ${item.name}`, '🛒', 'gold');
+  };
+
+  const equipItem = (item: ShopItem) => {
+    setEquipped(e => ({ ...e, [item.type]: item.id }));
+    notify(`⚡ Equipped: ${item.name}`, '⚡', 'info');
+  };
+
+  const avatarIcon = SHOP.find(i => i.id === equipped.avatar)?.icon || '🦊';
+  const titleText = SHOP.find(i => i.id === equipped.title)?.value || 'Novice';
+
+  const frameStyle = (): React.CSSProperties => {
+    const fv = SHOP.find(i => i.id === equipped.frame)?.value;
+    const styles: Record<string, React.CSSProperties> = {
+      none: { border: '3px solid rgba(255,255,255,0.1)' },
+      bronze: { border: '3px solid #CD7F32', boxShadow: '0 0 12px #CD7F3266' },
+      silver: { border: '3px solid #E5E7EB', boxShadow: '0 0 12px #E5E7EB66' },
+      emerald: { border: '3px solid #10B981', boxShadow: '0 0 14px #10B98166' },
+      ruby: { border: '3px solid #EF4444', boxShadow: '0 0 14px #EF444466' },
+      sapphire: { border: '3px solid #3B82F6', boxShadow: '0 0 14px #3B82F666' },
+      gold: { border: '3px solid #FBBF24', boxShadow: '0 0 16px #FBBF2477' },
+      fire: { border: '3px solid #EF4444', boxShadow: '0 0 18px #EF444477' },
+      ice: { border: '3px solid #38BDF8', boxShadow: '0 0 16px #38BDF877' },
+      thunder: { border: '3px solid #FACC15', boxShadow: '0 0 18px #FACC1588' },
+      diamond: { border: '3px solid #A78BFA', boxShadow: '0 0 20px #A78BFA88' },
+      cosmic: { border: '3px solid #EC4899', boxShadow: '0 0 22px #EC489988' },
+      holy: { border: '3px solid #FEF3C7', boxShadow: '0 0 24px #FEF3C7AA' },
+      rainbow: { border: '3px solid transparent', backgroundImage: 'linear-gradient(#0a0716,#0a0716), linear-gradient(45deg, #F43F5E, #FBBF24, #10B981, #06B6D4, #8B5CF6)', backgroundOrigin: 'border-box', backgroundClip: 'padding-box, border-box' },
     };
-    return themes[eq.theme] || themes['th-violet'];
-  }, [eq.theme]);
+    return styles[fv || 'none'];
+  };
 
-  // --- VIEWS ---
+  return (
+    <div className="min-h-screen text-gray-100 flex flex-col md:flex-row font-sans"
+      style={{ background: '#08060F', backgroundImage: `radial-gradient(circle at 20% 10%, ${accent}12 0%, transparent 50%), radial-gradient(circle at 80% 90%, ${accent}08 0%, transparent 50%)` }}>
 
-  const Sidebar = () => (
-    <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900/90 backdrop-blur-xl border-r border-slate-800 transition-transform lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-      <div className="p-6 flex flex-col h-full">
-        <div className="flex items-center gap-3 mb-10">
-          <SwordLogo size={42} />
-          <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">TASK FORGE</h1>
-        </div>
-
-        <nav className="flex-1 space-y-2">
-          {[
-            { id: 'dash', icon: LayoutDashboard, label: 'Sanctum' },
-            { id: 'habits', icon: Flame, label: 'Habit Forge' },
-            { id: 'todos', icon: CheckSquare, label: 'Quest Log' },
-            { id: 'focus', icon: Music, label: 'Focus Chamber' },
-            { id: 'loot', icon: ShoppingBag, label: 'Loot Locker' },
-          ].map(t => (
-            <button key={t.id} onClick={() => { setActiveTab(t.id); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === t.id ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-              <t.icon size={20} />
-              <span className="font-bold">{t.label}</span>
-            </button>
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-xs">
+        <AnimatePresence>
+          {toasts.map(t => (
+            <motion.div key={t.id} initial={{ opacity: 0, x: 30, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 30 }}
+              className="px-4 py-3 rounded-2xl backdrop-blur-xl border flex items-center gap-3 shadow-2xl"
+              style={{ background: 'rgba(15,12,28,0.95)', borderColor: `${accent}44`, boxShadow: `0 8px 32px ${accent}22` }}>
+              <span className="text-xl">{t.icon}</span>
+              <p className="text-xs font-medium text-white leading-tight">{t.message}</p>
+            </motion.div>
           ))}
-        </nav>
+        </AnimatePresence>
+      </div>
 
-        <div className="mt-auto p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-violet-600 flex items-center justify-center font-bold text-white">
-              {hero.level}
-            </div>
+      <aside className="hidden md:flex flex-col w-60 border-r border-white/5 p-4 justify-between backdrop-blur-xl" style={{ background: 'rgba(11,8,22,0.5)' }}>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3 px-2 py-2">
+            <SwordLogo size={44} />
             <div>
-              <p className="text-xs text-slate-400 uppercase font-black">Level</p>
-              <p className="text-sm font-bold text-white">{hero.xp} / {xpForLevel(hero.level)} XP</p>
+              <h1 className="font-black text-sm tracking-wider" style={{ color: accent }}>TASK FORGE</h1>
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest">Productivity RPG</p>
             </div>
           </div>
-          <div className="mt-3 h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full bg-violet-500" style={{ width: `${(hero.xp / xpForLevel(hero.level)) * 100}%` }} />
+          <nav className="space-y-1">
+            {[
+              { id: 'dash', label: 'Dashboard', icon: LayoutDashboard },
+              { id: 'habits', label: 'Habit Forge', icon: Flame },
+              { id: 'todos', label: 'Quest Log', icon: ListTodo },
+              { id: 'focus', label: 'Focus Chamber', icon: Timer },
+              { id: 'loot', label: 'Loot Locker', icon: ShoppingBag },
+            ].map(i => {
+              const active = tab === i.id;
+              const Ic = i.icon;
+              return (
+                <button key={i.id} onClick={() => setTab(i.id as any)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]'}`}
+                  style={active ? { background: `${accent}20`, color: accent, border: `1px solid ${accent}40` } : {}}>
+                  <Ic size={17} />
+                  <span>{i.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+        <div className="space-y-3">
+          <button onClick={() => setShowTutorialModal(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-xs">
+            <BookOpen size={13} /> View Tutorial
+          </button>
+          <div className="p-3 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="text-gray-400">Gold</span>
+              <span className="font-black text-yellow-400 flex items-center gap-1"><Coins size={13} /> {hero.gold}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400">Streak</span>
+              <span className="font-black text-orange-400 flex items-center gap-1"><Flame size={13} /> {hero.streakDays}d</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="md:hidden flex items-center gap-3 p-4 border-b border-white/5">
+        <SwordLogo size={36} />
+        <h1 className="font-black text-sm tracking-wider" style={{ color: accent }}>TASK FORGE</h1>
+      </div>
+
+      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full pb-24 md:pb-8">
+        {tab === 'dash' && <DashboardView {...{ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, setShowTutorialModal }} />}
+        {tab === 'habits' && <HabitsView {...{ habits, addHabit, toggleHabit, deleteHabit, accent }} />}
+        {tab === 'todos' && <TodosView {...{ todos, addTask, completeTask, uncompleteTask, deleteTask, accent }} />}
+        {tab === 'focus' && <FocusView {...{ sessions, focusFinish, accent }} />}
+        {tab === 'loot' && <LootView {...{ hero, inventory, equipped, buyItem, equipItem, accent }} />}
+      </main>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t border-white/5 flex items-center justify-around py-2 px-1" style={{ background: 'rgba(9,7,20,0.95)' }}>
+        {[
+          { id: 'dash', label: 'Home', icon: LayoutDashboard },
+          { id: 'habits', label: 'Habits', icon: Flame },
+          { id: 'todos', label: 'Quests', icon: ListTodo },
+          { id: 'focus', label: 'Focus', icon: Timer },
+          { id: 'loot', label: 'Loot', icon: ShoppingBag },
+        ].map(i => {
+          const active = tab === i.id;
+          const Ic = i.icon;
+          return (
+            <button key={i.id} onClick={() => setTab(i.id as any)}
+              className={`flex flex-col items-center gap-1 px-3 py-1 text-[10px] transition-all ${active ? 'text-white' : 'text-gray-500'}`}
+              style={active ? { color: accent } : {}}>
+              <Ic size={18} />
+              <span>{i.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {showTutorialModal && (
+        <InteractiveTutorial accent={accent} onFinish={() => { setShowTut(false); setShowTutorialModal(false); }} onNav={setTab} />
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// TUTORIAL
+// ============================================
+function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFinish: () => void; onNav: (t: any) => void }) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    { icon: '⚔️', title: 'Welcome to Task Forge!', body: 'Your real life becomes an RPG. Complete tasks & habits to earn XP, gold, defeat bosses & unlock legendary loot.', action: null as null | (() => void), actionText: '' },
+    { icon: '📜', title: 'Quest Log — Your Missions', body: 'Add your own tasks. Complete each quest once to earn XP + Gold (no cheating on re-checks).', action: () => onNav('todos'), actionText: 'Open Quest Log →' },
+    { icon: '⚡', title: 'Urgent vs Important', body: 'URGENT = time-sensitive (deadlines, fires to put out). IMPORTANT = long-term goals (health, career, faith, deep work). Use BOTH flags to prioritize: Important+Urgent = do first. Important only = schedule. Urgent only = quick handle. Neither = backlog.', action: () => onNav('todos'), actionText: 'Try adding a quest →' },
+    { icon: '🔥', title: 'Habit Forge', body: 'Build daily habits. Each NEW day earns rewards once. Re-checking the same day does NOT give more gold.', action: () => onNav('habits'), actionText: 'Open Habit Forge →' },
+    { icon: '🎵', title: 'Focus Chamber + Spotify', body: 'Deep-work timer with Spotify playlists. Remove any suggestion with X. Add your own Spotify links too!', action: () => onNav('focus'), actionText: 'Open Focus Chamber →' },
+    { icon: '👹', title: 'Daily Boss', body: 'Every day a boss appears. Quests, habits & focus damage it. Defeat it for big rewards!', action: () => onNav('dash'), actionText: 'View Dashboard →' },
+    { icon: '🛒', title: 'Loot Locker', body: 'Spend gold on 70+ titles, avatars, frames & themes from Common to Mythic.', action: () => onNav('loot'), actionText: 'Open Loot Locker →' },
+    { icon: '🎉', title: "You're all set!", body: 'Progress auto-saves privately in this browser. Click your name on the Dashboard to rename yourself. Now go forge greatness!', action: null, actionText: '' },
+  ];
+  const cur = steps[step];
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur p-4">
+      <motion.div key={step} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full p-8 rounded-3xl border border-white/10 text-center space-y-5" style={{ background: '#0f0c1d' }}>
+        <div className="text-6xl">{cur.icon}</div>
+        <h3 className="text-2xl font-black" style={{ color: accent }}>{cur.title}</h3>
+        <p className="text-sm text-gray-300 leading-relaxed text-left">{cur.body}</p>
+
+        {step === 2 && (
+          <div className="grid grid-cols-2 gap-2 text-left text-[11px]">
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+              <div className="font-black text-red-400 mb-1 flex items-center gap-1"><AlertTriangle size={12} /> URGENT</div>
+              <p className="text-gray-400">Time-sensitive. Do soon or something breaks.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <div className="font-black text-blue-400 mb-1 flex items-center gap-1"><Star size={12} /> IMPORTANT</div>
+              <p className="text-gray-400">Matters long-term. Goals, growth, purpose.</p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-center gap-2 py-2">
+          {steps.map((_, i) => (
+            <div key={i} className="rounded-full transition-all" style={{ background: i === step ? accent : 'rgba(255,255,255,0.15)', width: i === step ? 24 : 8, height: 8 }} />
+          ))}
+        </div>
+
+        {cur.action && (
+          <button onClick={cur.action} className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
+            style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+            {cur.actionText}
+          </button>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          {step > 0 && (
+            <button onClick={() => setStep(s => s - 1)} className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white/5 text-gray-400 flex items-center justify-center gap-1">
+              <ChevronLeft size={14} /> Back
+            </button>
+          )}
+          {step < steps.length - 1 ? (
+            <button onClick={() => setStep(s => s + 1)} className="flex-1 py-2.5 rounded-xl text-xs font-black text-black flex items-center justify-center gap-1" style={{ background: accent }}>
+              Next <ChevronRight size={14} />
+            </button>
+          ) : (
+            <button onClick={onFinish} className="flex-1 py-2.5 rounded-xl text-xs font-black text-black" style={{ background: accent }}>
+              Enter The Forge!
+            </button>
+          )}
+        </div>
+        <button onClick={onFinish} className="text-[10px] text-gray-500 hover:text-gray-300">Skip tutorial</button>
+      </motion.div>
+    </div>
+  );
+}
+
+// ============================================
+// DASHBOARD
+// ============================================
+function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, setShowTutorialModal }: any) {
+  const [editName, setEditName] = useState(false);
+  const [nameVal, setNameVal] = useState(hero.name);
+  const [cd, setCd] = useState('');
+
+  const getHourlyVerseIdx = () => {
+    const d = new Date();
+    return Math.floor(d.getTime() / (60 * 60 * 1000)) % VERSES.length;
+  };
+  const [verseIdx, setVerseIdx] = useState(getHourlyVerseIdx);
+
+  useEffect(() => {
+    const iv = setInterval(() => setVerseIdx(getHourlyVerseIdx()), 60000);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      const r = COOLDOWN - (Date.now() - lastAtk);
+      if (r <= 0) setCd('');
+      else setCd(`${Math.floor(r / 60000)}m ${Math.floor((r % 60000) / 1000)}s`);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [lastAtk]);
+
+  const canAtk = Date.now() - lastAtk >= COOLDOWN;
+  const today = todayStr();
+  const todayTasks = todos.filter((t: Todo) => t.completedAt === today).length;
+  const todayHabits = habits.filter((h: Habit) => h.completedDates.includes(today)).length;
+  const todayFocus = sessions.filter((s: FocusSession) => s.date === today).reduce((a: number, b: FocusSession) => a + b.minutes, 0);
+
+  const handlePic = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f || f.size > 2 * 1024 * 1024) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = 200; c.height = 200;
+        const ctx = c.getContext('2d')!;
+        const s = Math.max(200 / img.width, 200 / img.height);
+        ctx.drawImage(img, (200 - img.width * s) / 2, (200 - img.height * s) / 2, img.width * s, img.height * s);
+        setHero((h: Hero) => ({ ...h, profilePic: c.toDataURL('image/jpeg', 0.8) }));
+      };
+      img.src = r.result as string;
+    };
+    r.readAsDataURL(f);
+  };
+
+  const v = VERSES[verseIdx];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>COMMAND CENTER</h2>
+          <p className="text-xs text-gray-400">Welcome back, {hero.name}!</p>
+        </div>
+        <button onClick={() => setShowTutorialModal(true)} className="px-3 py-1.5 rounded-xl bg-white/5 text-gray-400 text-xs flex items-center gap-1.5">
+          <BookOpen size={13} /> Tutorial
+        </button>
+      </div>
+
+      <div className="p-6 md:p-8 rounded-3xl border-2 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${accent}0A, transparent)`, borderColor: `${accent}30` }}>
+        <div className="absolute top-3 right-3 text-[9px] uppercase tracking-widest text-gray-500 flex items-center gap-1">
+          <Clock size={10} /> Refreshes hourly
+        </div>
+        <Quote size={28} style={{ color: accent, opacity: 0.4 }} className="mb-3" />
+        <p className="text-lg md:text-2xl text-white italic leading-relaxed font-serif mb-4">"{v.text}"</p>
+        <p className="text-sm md:text-base font-black uppercase tracking-wider" style={{ color: accent }}>— {v.ref}</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="p-6 rounded-3xl border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <label className="relative mx-auto w-24 h-24 mb-3 cursor-pointer block">
+            <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl overflow-hidden" style={frameStyle()}>
+              {hero.profilePic ? <img src={hero.profilePic} className="w-full h-full object-cover" alt="Hero" /> : avatarIcon}
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={handlePic} />
+          </label>
+          {editName ? (
+            <div className="flex gap-2 mb-2">
+              <input value={nameVal} onChange={e => setNameVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setHero((h: Hero) => ({ ...h, name: nameVal.trim() || h.name })); setEditName(false); } }} autoFocus
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-center text-white font-bold focus:outline-none" maxLength={24} />
+              <button onClick={() => { setHero((h: Hero) => ({ ...h, name: nameVal.trim() || h.name })); setEditName(false); }}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold text-black" style={{ background: accent }}>Save</button>
+            </div>
+          ) : (
+            <button onClick={() => { setNameVal(hero.name); setEditName(true); }} className="font-black text-lg flex items-center justify-center gap-1 mx-auto">
+              {hero.name} <Edit3 size={12} className="text-gray-500" />
+            </button>
+          )}
+          <p className="text-xs text-gray-400 uppercase tracking-widest mb-4">{titleText}</p>
+          <div className="space-y-1.5 mb-4">
+            <div className="flex justify-between text-xs">
+              <span className="font-bold" style={{ color: accent }}>Level {hero.level}</span>
+              <span className="text-gray-400">{hero.xp} / {xpForLevel(hero.level)} XP</span>
+            </div>
+            <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full rounded-full" style={{ width: `${(hero.xp / xpForLevel(hero.level)) * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent}AA)` }} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-2.5 rounded-xl bg-white/[0.03]">
+              <div className="text-yellow-400 font-black flex items-center justify-center gap-1"><Coins size={13} /> {hero.gold}</div>
+              <div className="text-[10px] text-gray-500 uppercase">Gold</div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/[0.03]">
+              <div className="text-orange-400 font-black flex items-center justify-center gap-1"><Flame size={13} /> {hero.streakDays}d</div>
+              <div className="text-[10px] text-gray-500 uppercase">Streak</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-3xl border border-white/10 flex flex-col justify-between" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-black text-red-400 flex items-center gap-1.5 uppercase"><Sword size={13} /> Boss</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Lv {boss.level}</span>
+            </div>
+            <div className="text-center my-2">
+              <motion.div className="text-5xl mb-1" animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}>{boss.emoji}</motion.div>
+              <h4 className="font-black text-base">{boss.name}</h4>
+              <p className="text-[10px] text-gray-400">Defeated: {boss.defeatCount}×</p>
+            </div>
+            <div className="space-y-1 mb-3">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span className="flex items-center gap-1 text-red-400"><Heart size={12} /> HP</span>
+                <span>{boss.hp} / {boss.maxHp}</span>
+              </div>
+              <div className="h-3 bg-white/5 rounded-full overflow-hidden">
+                <motion.div className="h-full bg-gradient-to-r from-red-600 to-rose-400" animate={{ width: `${(boss.hp / boss.maxHp) * 100}%`} } />
+              </div>
+            </div>
+          </div>
+          <button onClick={quickAtk} disabled={!canAtk} className="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 disabled:opacity-40"
+            style={{ background: canAtk ? `${accent}25` : 'rgba(255,255,255,0.03)', color: canAtk ? accent : '#666', border: `1px solid ${canAtk ? accent + '40' : 'transparent'}` }}>
+            <Zap size={14} /> {canAtk ? 'Quick Attack' : cd}
+          </button>
+        </div>
+
+        <div className="p-6 rounded-3xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <h4 className="text-xs font-black uppercase text-gray-300 mb-4 flex items-center gap-2"><TrendingUp size={14} style={{ color: accent }} /> Today's Campaign</h4>
+          <div className="space-y-2">
+            {[
+              { icon: Target, label: 'Quests', val: todayTasks },
+              { icon: Flame, label: 'Habits', val: `${todayHabits}/${habits.length}` },
+              { icon: Clock, label: 'Focus min', val: todayFocus },
+              { icon: Sword, label: 'Bosses total', val: hero.totalBosses },
+            ].map(s => {
+              const Ic = s.icon;
+              return (
+                <div key={s.label} className="flex justify-between items-center text-xs p-2 rounded-xl bg-white/[0.02]">
+                  <span className="text-gray-400 flex items-center gap-2"><Ic size={13} /> {s.label}</span>
+                  <span className="font-black text-white">{s.val}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
     </div>
   );
+}
 
-  const Tut = () => {
-    const steps = [
-      { t: "Welcome, Warrior", d: "Forge your life into an RPG. Complete habits and quests to level up and defeat bosses." },
-      { t: "The Sanctum", d: "Your profile is here. Upload a photo, change your name, and see your daily Bible verse." },
-      { t: "Quest Log Secrets", d: "Quests help you slay the boss. Mark them Urgent (Today) or Important (Future Goals).", extra: (
-        <div className="grid grid-cols-2 gap-2 text-left text-[11px] mt-2">
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-            <div className="font-black text-red-400 mb-1 flex items-center gap-1"><AlertTriangle size={12} /> URGENT</div>
-            <p className="text-gray-400 italic">Do it now or it burns.</p>
-          </div>
-          <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
-            <div className="font-black text-blue-400 mb-1 flex items-center gap-1"><Star size={12} /> IMPORTANT</div>
-            <p className="text-gray-400 italic">Matters for your future self.</p>
-          </div>
+// ============================================
+// HABITS
+// ============================================
+function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any) {
+  const [show, setShow] = useState(false);
+  const [name, setName] = useState('');
+  const [emoji, setEmoji] = useState('🎯');
+  const [color, setColor] = useState('violet');
+  const [delId, setDelId] = useState<string | null>(null);
+  const colors = ['violet', 'cyan', 'emerald', 'rose', 'amber', 'sky', 'lime', 'fuchsia', 'orange', 'teal'];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>HABIT FORGE</h2>
+          <p className="text-xs text-gray-400">Daily streaks · Reward once per day only</p>
         </div>
-      )},
-      { t: "Habit Forge", d: "Build consistency. Toggle habits daily. You only get rewards once per day—no cheating!" },
-      { t: "The Daily Boss", d: "Your activities damage the Boss. Defeat them for massive Gold and XP rewards." },
-      { t: "Focus Chamber", d: "Use the deep-work timer and built-in noise engine/Spotify vibes to stay productive." },
-      { t: "Loot Locker", d: "Spend your earned gold on new titles, avatars, frames, and themes." },
-      { t: "One More Thing...", d: "Your data is private to you on this device. Now, go conquer your day!" }
-    ];
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          className="bg-slate-900 border border-violet-500/30 p-8 rounded-3xl max-w-md w-full shadow-2xl text-center">
-          <div className="w-20 h-20 bg-violet-600 rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg shadow-violet-900/40">
-            <Shield size={40} className="text-white" />
-          </div>
-          <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-wide">{steps[tutStep].t}</h2>
-          <p className="text-slate-400 leading-relaxed mb-6">{steps[tutStep].d}</p>
-          {steps[tutStep].extra}
-          <div className="flex gap-3">
-            {tutStep > 0 && <button onClick={() => setTutStep(s => s - 1)} className="flex-1 py-3 rounded-xl bg-slate-800 text-white font-bold">Back</button>}
-            <button onClick={() => tutStep < steps.length - 1 ? setTutStep(s => s + 1) : setShowTut(false)}
-              className="flex-1 py-3 rounded-xl bg-violet-600 text-white font-bold shadow-lg shadow-violet-900/30">
-              {tutStep === steps.length - 1 ? "Let's Go!" : "Continue"}
-            </button>
-          </div>
-        </motion.div>
+        <button onClick={() => setShow(!show)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold"
+          style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+          {show ? <X size={14} /> : <Plus size={14} />} {show ? 'Cancel' : 'New Habit'}
+        </button>
       </div>
-    );
-  };
 
-  const Dashboard = () => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [newName, setNewName] = useState(hero.name);
-    const hour = new Date().getHours();
-    const verse = VERSES[hour % VERSES.length];
-
-    const handleProfileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 200; canvas.height = 200;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, 200, 200);
-            localStorage.setItem(`tf_pfp_${UID}`, canvas.toDataURL());
-            touch();
-          };
-          img.src = ev.target?.result as string;
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
-    const pfp = localStorage.getItem(`tf_pfp_${UID}`) || null;
-
-    const quickAttack = () => {
-      const now = Date.now();
-      if (now - lastAtk < COOLDOWN) return;
-      const dmg = 12 + hero.level * 4;
-      damageBoss(dmg);
-      grantXp(15);
-      setLastAtk(now);
-      setNotif(`Quick Attack! -${dmg} HP to Boss.`);
-    };
-
-    const nextAtk = lastAtk + COOLDOWN;
-    const isAtkReady = Date.now() >= nextAtk;
-
-    return (
-      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className={`relative p-8 rounded-[2.5rem] bg-gradient-to-br ${themeColor} shadow-2xl overflow-hidden border border-white/10 group`}>
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:bg-white/20 transition-all duration-700" />
-          <div className="relative flex flex-col md:flex-row items-center gap-8">
-            <div className="relative">
-              <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 ${eq.frame === 'f-gold' ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.5)]' : eq.frame === 'f-steel' ? 'border-slate-300' : 'border-white/20'} overflow-hidden bg-slate-800 shadow-xl`}>
-                {pfp ? (
-                  <img src={pfp} className="w-full h-full object-cover" alt="Profile" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-slate-700">
-                    <UserIcon size={48} className="text-slate-400" />
-                  </div>
-                )}
+      <AnimatePresence>
+        {show && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            <div className="p-5 rounded-2xl border border-white/10 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Drink 2L Water"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none" maxLength={50} />
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-white/[0.02] rounded-xl">
+                {EMOJIS.map(e => (
+                  <button key={e} onClick={() => setEmoji(e)} className={`w-10 h-10 rounded-xl text-lg ${emoji === e ? 'ring-2' : 'bg-white/[0.03]'}`}
+                    style={emoji === e ? { background: `${accent}20`, boxShadow: `0 0 0 2px ${accent}` } : {}}>{e}</button>
+                ))}
               </div>
-              <label className="absolute bottom-1 right-1 w-10 h-10 bg-white text-violet-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 active:scale-95 transition-all">
-                <Camera size={18} />
-                <input type="file" hidden accept="image/*" onChange={handleProfileUpload} />
-              </label>
+              <div className="flex flex-wrap gap-2">
+                {colors.map(c => (
+                  <button key={c} onClick={() => setColor(c)} className={`w-8 h-8 rounded-full ${color === c ? 'ring-2 ring-white/60 scale-110' : ''}`} style={{ background: themeAccent(c) }} />
+                ))}
+              </div>
+              <button onClick={() => { addHabit(name, emoji, color); setName(''); setShow(false); }} disabled={!name.trim()}
+                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>Create Habit</button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            <div className="text-center md:text-left flex-1">
-              <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
-                {isEditing ? (
-                  <div className="flex items-center gap-2">
-                    <input autoFocus className="bg-white/20 border-b-2 border-white text-white font-black text-3xl outline-none px-2 w-48 rounded" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setHero({ ...hero, name: newName }), setIsEditing(false))} />
-                    <button onClick={() => { setHero({ ...hero, name: newName }); setIsEditing(false); }} className="p-2 bg-white text-violet-600 rounded-lg"><Save size={20} /></button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-4xl font-black text-white tracking-tight drop-shadow-sm">{hero.name}</h2>
-                    <button onClick={() => setIsEditing(true)} className="text-white/60 hover:text-white transition-colors"><Edit2 size={20} /></button>
-                  </div>
-                )}
-              </div>
-              <p className="text-white/80 font-black text-lg mb-6 flex items-center justify-center md:justify-start gap-2">
-                <Award size={20} /> {SHOP.find(s => s.id === eq.title)?.name || 'The Novice'}
-              </p>
-              
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10">
-                  <p className="text-white/60 text-[10px] uppercase font-black">Gold Crystals</p>
-                  <p className="text-2xl font-black text-yellow-300">🪙 {hero.gold}</p>
-                </div>
-                <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10">
-                  <p className="text-white/60 text-[10px] uppercase font-black">Daily Streak</p>
-                  <p className="text-2xl font-black text-orange-400">🔥 {hero.streak}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+      {habits.length === 0 ? (
+        <div className="p-12 rounded-2xl border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="text-5xl mb-3">🔥</div>
+          <p className="text-gray-400">Forge your first habit above!</p>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-[2rem] flex flex-col items-center justify-center text-center">
-            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6">Light for the Hour</h3>
-            <p className="text-4xl md:text-5xl font-black text-white italic leading-tight mb-4 tracking-tight drop-shadow-md">"{verse.text}"</p>
-            <p className="text-violet-400 font-bold uppercase tracking-widest">- {verse.ref}</p>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-5">
-              <Skull size={120} />
-            </div>
-            <div className="flex justify-between items-start mb-8 flex-wrap gap-4">
-              <div>
-                <p className="text-xs font-black text-red-500 uppercase tracking-wider mb-1">Active Boss Fight</p>
-                <h3 className="text-3xl font-black text-white">{boss.name} <span className="text-slate-500 text-lg">LVL {boss.level}</span></h3>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-black text-slate-500 uppercase">Reward Pool</p>
-                <p className="text-xl font-black text-yellow-400">🪙 {boss.rewardGold}   <span className="text-violet-400">✨ {boss.rewardXp}</span></p>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="relative h-14 bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-inner">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${(boss.hp / boss.maxHp) * 100}%` }}
-                  className="h-full bg-gradient-to-r from-red-600 to-rose-500 shadow-[0_0_20px_rgba(225,29,72,0.4)]" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-white font-black text-lg drop-shadow-md">{boss.hp} / {boss.maxHp} HP</span>
-                </div>
-              </div>
-              
-              <button 
-                onClick={quickAttack}
-                disabled={!isAtkReady}
-                className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-xl transition-all shadow-xl ${isAtkReady ? 'bg-red-600 text-white hover:bg-red-500 hover:-translate-y-1 shadow-red-900/20' : 'bg-slate-800 text-slate-500 grayscale cursor-not-allowed opacity-50'}`}>
-                <Zap size={24} className={isAtkReady ? "fill-white" : ""} />
-                {isAtkReady ? 'QUICK ATTACK' : 'CHARGING ATTACK...'}
-              </button>
-              {!isAtkReady && (
-                <p className="text-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Ready in {Math.ceil((nextAtk - Date.now()) / 60000)} mins
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const Habits = () => {
-    const [newHabit, setNewHabit] = useState('');
-    const [newIcon, setNewIcon] = useState('🔥');
-    const today = todayStr();
-
-    const addHabit = () => {
-      if (!newHabit) return;
-      const h = { id: Date.now(), title: newHabit, icon: newIcon, streak: 0, longestStreak: 0, completedDates: [], rewardedDates: [] };
-      setHabits([...habits, h]);
-      setNewHabit('');
-    };
-
-    const toggleHabit = (id: number) => {
-      const updated = habits.map(h => {
-        if (h.id !== id) return h;
-        const newDates = h.completedDates.includes(today) ? h.completedDates.filter((d: string) => d !== today) : [...h.completedDates, today];
-        const alreadyRewarded = h.rewardedDates?.includes(today);
-        
-        let newStreak = h.streak;
-        if (newDates.includes(today)) {
-          newStreak++;
-          if (!alreadyRewarded) {
-            grantXp(20);
-            grantGold(8);
-            damageBoss(10);
-            touch();
-            setNotif("Consistancy pays off! +8 Gold, +20 XP");
-          }
-        } else {
-          newStreak = Math.max(0, newStreak - 1);
-        }
-
-        return { 
-          ...h, 
-          completedDates: newDates, 
-          streak: newStreak, 
-          longestStreak: Math.max(h.longestStreak || 0, newStreak),
-          rewardedDates: alreadyRewarded ? h.rewardedDates : (newDates.includes(today) ? [...(h.rewardedDates || []), today] : h.rewardedDates)
-        };
-      });
-      setHabits(updated);
-    };
-
-    const deleteHabit = (id: number) => {
-      if (confirm('Delete this habit? Progress will be lost.')) setHabits(habits.filter(h => h.id !== id));
-    };
-
-    return (
-      <div className="max-w-3xl mx-auto animate-in slide-in-from-bottom-6 duration-700">
-        <div className="mb-10 text-center">
-          <h2 className="text-4xl font-black text-white mb-2">HABIT FORGE</h2>
-          <p className="text-slate-400 font-bold uppercase tracking-widest">Build consistent strength daily</p>
-        </div>
-
-        <div className="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 mb-8 flex gap-4">
-          <div className="relative group">
-            <button className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl hover:bg-slate-700 transition-colors border border-slate-700">{newIcon}</button>
-            <div className="absolute top-full left-0 mt-2 p-3 bg-slate-800 border border-slate-700 rounded-2xl hidden group-hover:grid grid-cols-6 gap-2 z-50 shadow-2xl w-64 h-64 overflow-y-auto custom-scroll">
-              {EMOJIS.map(e => <button key={e} onClick={() => setNewIcon(e)} className="hover:bg-slate-700 p-2 rounded-lg transition-colors">{e}</button>)}
-            </div>
-          </div>
-          <input className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-6 font-bold text-white focus:ring-2 focus:ring-violet-500 outline-none placeholder:text-slate-600"
-            placeholder="Add new habit... (e.g. Read Word, Exercise)" value={newHabit} onChange={e => setNewHabit(e.target.value)} onKeyDown={e => e.key === 'Enter' && addHabit()} />
-          <button onClick={addHabit} className="bg-violet-600 hover:bg-violet-500 text-white px-8 rounded-2xl font-black transition-all active:scale-95 shadow-lg shadow-violet-900/20">ADD</button>
-        </div>
-
-        <div className="grid gap-4">
-          {habits.map(h => {
-            const doneToday = h.completedDates.includes(today);
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {habits.map((h: Habit) => {
+            const done = h.completedDates.includes(todayStr());
+            const rewardedToday = h.rewardedDates?.includes(todayStr());
+            const hAcc = themeAccent(h.color);
             return (
-              <motion.div layout key={h.id} className={`p-6 rounded-3xl border transition-all ${doneToday ? 'bg-violet-600/10 border-violet-500/50' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}>
-                <div className="flex items-center gap-6">
-                  <button onClick={() => toggleHabit(h.id)} className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all transform active:scale-90 shadow-lg ${doneToday ? 'bg-violet-600 shadow-violet-900/40 rotate-6' : 'bg-slate-800 grayscale border border-slate-700'}`}>
-                    {h.icon}
-                  </button>
-                  <div className="flex-1">
-                    <h4 className={`text-xl font-black mb-1 ${doneToday ? 'text-white' : 'text-slate-300'}`}>{h.title}</h4>
-                    <div className="flex items-center gap-4 text-xs font-black uppercase tracking-widest">
-                      <span className="text-orange-500 flex items-center gap-1"><Flame size={14} /> {h.streak} Day Streak</span>
-                      <span className="text-slate-500">Best: {h.longestStreak || 0}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="hidden sm:flex gap-1">
-                      {[...Array(7)].map((_, i) => {
-                        const d = new Date(); d.setDate(d.getDate() - (6 - i));
-                        const dS = d.toISOString().split('T')[0];
-                        const active = h.completedDates.includes(dS);
-                        return <div key={i} className={`w-3 h-8 rounded-full ${active ? 'bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]' : 'bg-slate-800'}`} />;
-                      })}
-                    </div>
-                    <button onClick={() => deleteHabit(h.id)} className="p-2 text-slate-600 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+              <motion.div key={h.id} layout className="p-4 rounded-2xl border border-white/10 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                <button onClick={() => toggleHabit(h.id)} className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
+                  style={{ background: done ? `${hAcc}30` : 'rgba(255,255,255,0.03)', border: `2px solid ${done ? hAcc : 'rgba(255,255,255,0.1)'}` }}>
+                  {done ? <Check size={20} style={{ color: hAcc }} /> : h.emoji}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <h4 className={`text-sm font-bold ${done ? 'line-through text-gray-500' : ''}`}>{h.name}</h4>
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                    <span className="text-orange-400 flex items-center gap-0.5"><Flame size={10} /> {h.streak}d</span>
+                    {rewardedToday && <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 text-[9px]">✓ REWARDED</span>}
                   </div>
                 </div>
+                {delId === h.id ? (
+                  <div className="flex gap-1">
+                    <button onClick={() => { deleteHabit(h.id); setDelId(null); }} className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400">Yes</button>
+                    <button onClick={() => setDelId(null)} className="px-2 py-1 rounded text-xs bg-white/5 text-gray-400">No</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setDelId(h.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={14} /></button>
+                )}
               </motion.div>
             );
           })}
-          {habits.length === 0 && <div className="text-center py-20 text-slate-600 font-bold bg-slate-900/30 rounded-[3rem] border-2 border-dashed border-slate-800">No habits forged yet. Create one above!</div>}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// TODOS
+// ============================================
+function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, accent }: any) {
+  const [show, setShow] = useState(false);
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [urgent, setUrgent] = useState(false);
+  const [important, setImportant] = useState(false);
+  const [delId, setDelId] = useState<string | null>(null);
+  const active = todos.filter((t: Todo) => !t.completed);
+  const done = todos.filter((t: Todo) => t.completed);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>QUEST LOG</h2>
+          <p className="text-xs text-gray-400">Urgent = time-sensitive · Important = long-term goals</p>
+        </div>
+        <button onClick={() => setShow(!show)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold"
+          style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+          {show ? <X size={14} /> : <Plus size={14} />} {show ? 'Cancel' : 'New Quest'}
+        </button>
       </div>
-    );
+
+      <AnimatePresence>
+        {show && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            <div className="p-5 rounded-2xl border border-white/10 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" autoFocus
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none" maxLength={120} />
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none resize-none h-20" maxLength={300} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-start gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/20 cursor-pointer">
+                  <input type="checkbox" checked={urgent} onChange={e => setUrgent(e.target.checked)} className="mt-0.5 accent-red-500" />
+                  <div>
+                    <span className="text-xs text-red-400 font-bold flex items-center gap-1"><AlertTriangle size={12} /> Urgent</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Needs attention soon / has a deadline</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-2 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 cursor-pointer">
+                  <input type="checkbox" checked={important} onChange={e => setImportant(e.target.checked)} className="mt-0.5 accent-blue-500" />
+                  <div>
+                    <span className="text-xs text-blue-400 font-bold flex items-center gap-1"><Star size={12} /> Important</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Matters for long-term goals & growth</p>
+                  </div>
+                </label>
+              </div>
+              <button onClick={() => { addTask(title, notes, urgent, important); setTitle(''); setNotes(''); setUrgent(false); setImportant(false); setShow(false); }} disabled={!title.trim()}
+                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>Add Quest</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {todos.length === 0 ? (
+        <div className="p-12 rounded-2xl border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="text-5xl mb-3">📜</div>
+          <p className="text-gray-400">Your quest log is empty. Add your first quest!</p>
+        </div>
+      ) : (
+        <>
+          <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h3 className="text-xs font-black uppercase text-gray-400 mb-3">Active ({active.length})</h3>
+            {active.length === 0 ? <p className="text-xs text-gray-500 italic">All done! 🎉</p> : (
+              <div className="space-y-2">
+                {active.map((t: Todo) => (
+                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] group">
+                    <button onClick={() => completeTask(t.id)} className="w-6 h-6 rounded-lg border-2 border-white/20 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">{t.title}</p>
+                      <div className="flex gap-2 mt-1">
+                        {t.urgent && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">URGENT</span>}
+                        {t.important && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">IMPORTANT</span>}
+                        {t.rewardClaimed && <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">CLAIMED</span>}
+                      </div>
+                    </div>
+                    {delId === t.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => { deleteTask(t.id); setDelId(null); }} className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400">Yes</button>
+                        <button onClick={() => setDelId(null)} className="px-2 py-1 rounded text-xs bg-white/5 text-gray-400">No</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setDelId(t.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {done.length > 0 && (
+            <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <h3 className="text-xs font-black uppercase text-gray-400 mb-3">Completed ({done.length})</h3>
+              {done.map((t: Todo) => (
+                <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl opacity-60">
+                  <button onClick={() => uncompleteTask(t.id)} className="w-6 h-6 rounded-lg bg-green-500/30 border-2 border-green-500/50 flex items-center justify-center">
+                    <Check size={14} className="text-green-400" />
+                  </button>
+                  <p className="text-sm line-through flex-1">{t.title}</p>
+                  <button onClick={() => deleteTask(t.id)} className="text-gray-600 hover:text-red-400"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// FOCUS CHAMBER (with remove suggestion)
+// ============================================
+function FocusView({ sessions, focusFinish, accent }: any) {
+  const [preset, setPreset] = useState(1);
+  const [total, setTotal] = useState(FOCUS_PRESETS[1].minutes * 60);
+  const [rem, setRem] = useState(FOCUS_PRESETS[1].minutes * 60);
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const savedRef = useRef(false);
+
+  const [activeSpotify, setActiveSpotify] = useState<string | null>(null);
+  const [customUrl, setCustomUrl] = useState('');
+  const [customList, setCustomList] = useStored<SpotifyPlaylist[]>('tf_custom_spotify_v1', []);
+  const [hiddenPlaylists, setHiddenPlaylists] = useStored<string[]>('tf_hidden_spotify_v1', []);
+  const [synth, setSynth] = useState<Set<SoundType>>(new Set());
+
+  useEffect(() => {
+    let iv: number | null = null;
+    if (running && !paused) {
+      iv = window.setInterval(() => {
+        setRem(prev => {
+          if (prev <= 1) {
+            if (!savedRef.current) {
+              savedRef.current = true;
+              focusFinish(FOCUS_PRESETS[preset].minutes, FOCUS_PRESETS[preset].label);
+            }
+            setRunning(false); setPaused(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (iv) clearInterval(iv); };
+  }, [running, paused, preset, focusFinish]);
+
+  useEffect(() => () => { engine.stopAll(); }, []);
+
+  const start = () => {
+    if (rem <= 0) { setTotal(FOCUS_PRESETS[preset].minutes * 60); setRem(FOCUS_PRESETS[preset].minutes * 60); }
+    savedRef.current = false;
+    setRunning(true); setPaused(false);
+  };
+  const reset = () => { setRunning(false); setPaused(false); setRem(FOCUS_PRESETS[preset].minutes * 60); savedRef.current = false; };
+
+  const toggleSynth = (t: SoundType) => {
+    if (synth.has(t)) { engine.stop(t); setSynth(p => { const n = new Set(p); n.delete(t); return n; }); }
+    else { engine.start(t, 0.5); setSynth(p => new Set(p).add(t)); }
   };
 
-  const Todos = () => {
-    const [newTodo, setNewTodo] = useState('');
-    const [urgent, setUrgent] = useState(false);
-    const [important, setImportant] = useState(false);
+  const addSpotify = () => {
+    let raw = customUrl.trim();
+    if (!raw) return;
+    let kind: 'playlist' | 'album' | 'track' = 'playlist';
+    let id = raw;
+    if (raw.includes('spotify.com/')) {
+      if (raw.includes('/playlist/')) { kind = 'playlist'; id = raw.split('/playlist/')[1]?.split('?')[0] || ''; }
+      else if (raw.includes('/album/')) { kind = 'album'; id = raw.split('/album/')[1]?.split('?')[0] || ''; }
+      else if (raw.includes('/track/')) { kind = 'track'; id = raw.split('/track/')[1]?.split('?')[0] || ''; }
+    }
+    id = id.replace(/[^a-zA-Z0-9]/g, '');
+    if (id.length < 10) { alert('Paste a valid Spotify playlist, album, or track link.'); return; }
+    const p: SpotifyPlaylist = { id: `c-${Date.now()}`, name: 'Custom Spotify', tag: 'Custom', spotifyId: id, kind };
+    setCustomList(prev => [...prev, p]);
+    setActiveSpotify(p.id);
+    setCustomUrl('');
+  };
 
-    const addTodo = () => {
-      if (!newTodo) return;
-      const t = { id: Date.now(), text: newTodo, urgent, important, completed: false, rewardClaimed: false };
-      setTodos([...todos, t]);
-      setNewTodo(''); setUrgent(false); setImportant(false);
-    };
+  const hidePlaylist = (id: string) => {
+    setHiddenPlaylists(prev => (prev.includes(id) ? prev : [...prev, id]));
+    setCustomList(prev => prev.filter(p => p.id !== id));
+    if (activeSpotify === id) setActiveSpotify(null);
+  };
 
-    const toggleTodo = (id: number) => {
-      setTodos(todos.map(t => {
-        if (t.id !== id) return t;
-        if (t.completed) return { ...t, completed: false };
-        
-        // Mark completed first time
-        if (!t.rewardClaimed) {
-          const xp = t.important ? 30 : 20;
-          const gold = t.important ? 12 : 8;
-          const dmg = t.urgent ? 15 : 10;
-          grantXp(xp); grantGold(gold); damageBoss(dmg);
-          setNotif(`Quest Complete! +${gold} Gold, +${xp} XP`);
-          return { ...t, completed: true, rewardClaimed: true };
-        }
-        return { ...t, completed: true };
-      }));
-    };
+  const restoreAllPlaylists = () => setHiddenPlaylists([]);
 
-    const deleteTodo = (id: number) => {
-      if (confirm('Abandon this quest?')) setTodos(todos.filter(t => t.id !== id));
-    };
+  const allPlaylists = [...SPOTIFY_PLAYLISTS, ...customList];
+  const visiblePlaylists = allPlaylists.filter(p => !hiddenPlaylists.includes(p.id));
+  const active = allPlaylists.find(p => p.id === activeSpotify);
 
-    return (
-      <div className="max-w-3xl mx-auto animate-in zoom-in-95 duration-700">
-        <div className="mb-10 text-center">
-          <h2 className="text-4xl font-black text-white mb-2 tracking-tight">QUEST LOG</h2>
-          <p className="text-slate-400 font-bold uppercase tracking-widest">Slay your tasks, earn your glory</p>
-        </div>
+  const grouped: Record<string, SpotifyPlaylist[]> = {};
+  visiblePlaylists.forEach(p => {
+    if (!grouped[p.tag]) grouped[p.tag] = [];
+    grouped[p.tag].push(p);
+  });
 
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl mb-12">
-          <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-6 py-4 font-bold text-xl text-white outline-none focus:ring-2 focus:ring-violet-500 mb-6 placeholder:text-slate-600 shadow-inner"
-            placeholder="What is your next mission?" value={newTodo} onChange={e => setNewTodo(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTodo()} />
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex gap-3">
-              <button onClick={() => setUrgent(!urgent)} className={`px-5 py-3 rounded-xl font-black text-xs transition-all flex items-center gap-2 border ${urgent ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-900/30' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
-                <AlertTriangle size={16} /> URGENT
+  const today = todayStr();
+  const circ = 2 * Math.PI * 85;
+  const progress = total > 0 ? ((total - rem) / total) : 0;
+
+  const soundOpts: { t: SoundType; icon: string; label: string }[] = [
+    { t: 'rain', icon: '🌧️', label: 'Rain' }, { t: 'ocean', icon: '🌊', label: 'Ocean' },
+    { t: 'cafe', icon: '☕', label: 'Café' }, { t: 'white', icon: '📻', label: 'White' },
+    { t: 'pink', icon: '🩷', label: 'Pink' }, { t: 'brown', icon: '🟤', label: 'Brown' },
+    { t: 'binaural', icon: '🧠', label: 'Alpha' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>FOCUS CHAMBER</h2>
+        <p className="text-xs text-gray-400">Timer · Spotify playlists · Procedural ambience</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="p-6 rounded-2xl border border-white/10 flex flex-col items-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex flex-wrap gap-2 mb-8 justify-center">
+            {FOCUS_PRESETS.map((p, i) => (
+              <button key={p.label} disabled={running} onClick={() => { setPreset(i); setTotal(p.minutes * 60); setRem(p.minutes * 60); }}
+                className="px-3 py-1.5 rounded-xl text-xs font-black disabled:opacity-50"
+                style={preset === i ? { background: `${accent}25`, color: accent, border: `1px solid ${accent}40` } : { background: 'rgba(255,255,255,0.03)', color: '#888' }}>
+                {p.label} · {p.minutes}m
               </button>
-              <button onClick={() => setImportant(!important)} className={`px-5 py-3 rounded-xl font-black text-xs transition-all flex items-center gap-2 border ${important ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/30' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
-                <Star size={16} /> IMPORTANT
-              </button>
+            ))}
+          </div>
+          <div className="relative w-56 h-56 flex items-center justify-center mb-8">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
+              <circle cx="100" cy="100" r="85" fill="none" stroke={accent} strokeWidth="6" strokeLinecap="round"
+                strokeDasharray={circ} strokeDashoffset={circ * (1 - progress)} style={{ transition: 'stroke-dashoffset 0.5s' }} />
+            </svg>
+            <div className="absolute text-center">
+              <div className="text-4xl font-black text-white">{formatTime(rem)}</div>
+              <span className="text-[10px] text-gray-500 uppercase">{FOCUS_PRESETS[preset].label}</span>
             </div>
-            <button onClick={addTodo} className="bg-violet-600 hover:bg-violet-500 text-white px-10 py-4 rounded-2xl font-black text-lg shadow-xl shadow-violet-900/20 active:scale-95 transition-all">POST QUEST</button>
+          </div>
+          <div className="flex gap-2">
+            {!running ? (
+              <button onClick={start} className="px-8 py-3 rounded-xl text-xs font-black text-black flex items-center gap-2" style={{ background: accent }}>
+                <Play size={14} fill="black" /> Engage
+              </button>
+            ) : (
+              <>
+                <button onClick={() => setPaused(!paused)} className="px-6 py-2.5 rounded-xl text-xs font-black flex items-center gap-2"
+                  style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+                  {paused ? <><Play size={13} /> Resume</> : <><Pause size={13} /> Pause</>}
+                </button>
+                <button onClick={reset} className="px-4 py-2.5 rounded-xl text-xs font-black bg-white/5 text-gray-400"><Square size={13} /></button>
+              </>
+            )}
           </div>
         </div>
 
         <div className="space-y-4">
-          {todos.map(t => (
-            <motion.div layout key={t.id} className={`p-6 rounded-[2rem] border transition-all ${t.completed ? 'bg-slate-900/40 border-slate-800/50 opacity-60' : 'bg-slate-900 border-slate-800 shadow-lg'}`}>
-              <div className="flex items-center gap-6">
-                <button onClick={() => toggleTodo(t.id)} className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${t.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-700 hover:border-violet-500'}`}>
-                  {t.completed && <CheckSquare size={20} />}
-                </button>
-                <div className="flex-1">
-                  <p className={`text-xl font-bold ${t.completed ? 'line-through text-slate-600' : 'text-slate-200'}`}>{t.text}</p>
-                  <div className="flex gap-2 mt-2">
-                    {t.urgent && <span className="bg-red-600/10 text-red-500 text-[10px] font-black px-2 py-0.5 rounded border border-red-500/20">URGENT</span>}
-                    {t.important && <span className="bg-blue-600/10 text-blue-500 text-[10px] font-black px-2 py-0.5 rounded border border-blue-500/20">IMPORTANT</span>}
+          <div className="p-5 rounded-2xl border border-white/10 space-y-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h4 className="text-xs font-black uppercase text-green-400 flex items-center gap-2">
+              <Music size={14} /> Spotify Focus Radio
+            </h4>
+            <p className="text-[10px] text-gray-500">Click X on any suggestion to hide it. Add custom Spotify links below.</p>
+
+            <div className="flex gap-2">
+              <input value={customUrl} onChange={e => setCustomUrl(e.target.value)}
+                placeholder="Paste Spotify link..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none" />
+              <button onClick={addSpotify} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs flex items-center gap-1">
+                <Plus size={12} /> Add
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-52 overflow-y-auto">
+              {Object.entries(grouped).map(([tag, list]) => (
+                <div key={tag}>
+                  <div className="text-[10px] uppercase text-gray-500 font-bold mb-1 px-1">{tag}</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {list.map(p => {
+                      const on = activeSpotify === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          className="relative group rounded-xl border text-left text-xs transition-all overflow-hidden"
+                          style={on
+                            ? { background: `${accent}15`, borderColor: `${accent}40`, color: accent }
+                            : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#aaa' }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setActiveSpotify(on ? null : p.id)}
+                            className="w-full p-2 pr-8 text-left"
+                          >
+                            <div className="font-bold truncate">{p.name}</div>
+                          </button>
+                          <button
+                            type="button"
+                            title="Remove this suggestion"
+                            aria-label={`Remove ${p.name}`}
+                            onClick={(e) => { e.stopPropagation(); hidePlaylist(p.id); }}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/15 opacity-70 group-hover:opacity-100 transition-all"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <button onClick={() => deleteTodo(t.id)} className="p-2 text-slate-700 hover:text-red-500 transition-colors"><Trash2 size={20} /></button>
-              </div>
-            </motion.div>
-          ))}
-          {todos.length === 0 && <div className="text-center py-24 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800 text-slate-600 font-bold uppercase tracking-widest">Your quest log is empty.</div>}
-        </div>
-      </div>
-    );
-  };
-
-  const Focus = () => {
-    const [timeLeft, setTimeLeft] = useState(25 * 60);
-    const [isActive, setIsActive] = useState(false);
-    const [selectedNoise, setSelectedNoise] = useState<SoundType | null>(null);
-    const [noiseVol, setNoiseVol] = useState(0.5);
-    const [activeSpotify, setActiveSpotify] = useState<string | null>(null);
-    const [customLink, setCustomLink] = useState('');
-    const [todayFocus, setTodayFocus] = useStored('tf_focus_daily', { date: todayStr(), mins: 0 });
-
-    useEffect(() => {
-      let t: any;
-      if (isActive && timeLeft > 0) {
-        t = setInterval(() => setTimeLeft(l => l - 1), 1000);
-      } else if (timeLeft === 0) {
-        setIsActive(false);
-        const mins = 25; // Placeholder for logic
-        grantXp(mins * 2); grantGold(Math.round(mins * 0.8)); damageBoss(Math.round(mins * 0.6));
-        setNotif("Focus Session Complete! Massive Gains!");
-      }
-      return () => clearInterval(t);
-    }, [isActive, timeLeft]);
-
-    const addCustomSpotify = () => {
-      try {
-        const id = customLink.split('playlist/')[1]?.split('?')[0];
-        if (id) {
-          const newItem = { id, name: 'Custom List', category: 'User' };
-          setCustomPlaylists([...customPlaylists, newItem]);
-          setCustomLink('');
-        }
-      } catch (e) { alert('Invalid Spotify Link'); }
-    };
-
-    const hidePlaylist = (id: string) => {
-      setHiddenPlaylists([...hiddenPlaylists, id]);
-      if (activeSpotify === id) setActiveSpotify(null);
-    };
-
-    const restoreHidden = () => setHiddenPlaylists([]);
-
-    const allPlaylists = [...SPOTIFY_PLAYLISTS, ...customPlaylists].filter(p => !hiddenPlaylists.includes(p.id));
-
-    return (
-      <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-1000">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          
-          <div className="lg:col-span-1 space-y-8">
-            <div className="bg-slate-900 border border-slate-800 p-8 rounded-[3rem] text-center shadow-2xl relative overflow-hidden">
-              <div className="absolute inset-0 bg-violet-600/5 pointer-events-none" />
-              <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-10">Neural Focus Timer</h3>
-              
-              <div className="relative inline-block mb-10">
-                <svg className="w-64 h-64 -rotate-90">
-                  <circle cx="128" cy="128" r="120" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
-                  <motion.circle cx="128" cy="128" r="120" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={754}
-                    strokeDashoffset={754 - (754 * timeLeft) / (25 * 60)} strokeLinecap="round" className="text-violet-600" />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-6xl font-black text-white tabular-nums tracking-tighter">
-                    {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
-                  </span>
-                  <span className="text-xs font-black text-slate-500 uppercase mt-2">Remains</span>
-                </div>
-              </div>
-
-              <div className="flex gap-4 justify-center mb-8">
-                <button onClick={() => setIsActive(!isActive)} className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${isActive ? 'bg-slate-800 text-white' : 'bg-violet-600 text-white shadow-lg shadow-violet-900/40'}`}>
-                  {isActive ? <Pause size={32} /> : <Play size={32} className="ml-2" />}
-                </button>
-                <button onClick={() => { setIsActive(false); setTimeLeft(25 * 60); }} className="w-20 h-20 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center hover:text-white transition-all">
-                  <RotateCcw size={32} />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {FOCUS_PRESETS.map(p => (
-                  <button key={p.label} onClick={() => { setIsActive(false); setTimeLeft(p.mins * 60); }}
-                    className="py-3 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded-2xl font-black text-xs transition-all border border-slate-700/50">
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem]">
-              <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6">Procedural Soundscape</h3>
-              <div className="space-y-4">
-                {[
-                  { id: 'rain', label: 'Heavy Rain' },
-                  { id: 'ocean', label: 'Deep Ocean' },
-                  { id: 'cafe', label: 'Busy Cafe' },
-                  { id: 'white', label: 'White Noise' },
-                  { id: 'binaural', label: 'Binaural 40Hz' },
-                ].map((s: any) => (
-                  <button key={s.id} onClick={() => { audioMgr.toggle(s.id, noiseVol); setSelectedNoise(selectedNoise === s.id ? null : s.id); }}
-                    className={`w-full p-4 rounded-2xl flex items-center justify-between transition-all border ${selectedNoise === s.id ? 'bg-violet-600/10 border-violet-500 text-white' : 'bg-slate-800/30 border-slate-800 text-slate-400 hover:border-slate-700'}`}>
-                    <span className="font-bold">{s.label}</span>
-                    {selectedNoise === s.id ? <Volume2 size={18} /> : <VolumeX size={18} />}
-                  </button>
-                ))}
-                <div className="pt-4">
-                  <p className="text-[10px] font-black text-slate-600 uppercase mb-3">Engine Volume</p>
-                  <input type="range" min="0" max="1" step="0.01" value={noiseVol} onChange={e => {
-                    const v = parseFloat(e.target.value);
-                    setNoiseVol(v);
-                    if (selectedNoise) audioMgr.updateVolume(selectedNoise, v);
-                  }} className="w-full h-1.5 bg-slate-800 rounded-full appearance-none accent-violet-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-8">
-            {activeSpotify ? (
-              <div className="bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-800 aspect-video relative group">
-                <iframe src={`https://open.spotify.com/embed/playlist/${activeSpotify}?utm_source=generator&theme=0`}
-                  width="100%" height="100%" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
-                <button onClick={() => setActiveSpotify(null)} className="absolute top-4 right-4 p-3 bg-black/60 backdrop-blur-md text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <X size={20} />
-                </button>
-              </div>
-            ) : (
-              <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center">
-                <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 text-slate-600"><Music size={40} /></div>
-                <h3 className="text-2xl font-black text-white mb-3">Atmospheric Resonance</h3>
-                <p className="text-slate-500 font-bold max-w-sm">Select a sonic environment below or paste a Spotify playlist link to begin your deep work session.</p>
-                <div className="mt-8 flex gap-3 w-full max-w-md">
-                  <input className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-violet-500"
-                    placeholder="Spotify Playlist URL..." value={customLink} onChange={e => setCustomLink(e.target.value)} />
-                  <button onClick={addCustomSpotify} className="bg-violet-600 p-4 rounded-xl text-white hover:bg-violet-500 transition-all"><Plus size={20} /></button>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-              {allPlaylists.map(p => (
-                <div key={p.id} className="relative group">
-                  <button onClick={() => setActiveSpotify(p.id)}
-                    className="w-full p-6 bg-slate-900 border border-slate-800 rounded-3xl text-left hover:border-violet-500 transition-all group flex flex-col items-start gap-4">
-                    <div className="w-12 h-12 bg-violet-600/10 rounded-2xl flex items-center justify-center text-violet-500 group-hover:bg-violet-600 group-hover:text-white transition-all">
-                      <Play size={20} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{p.category}</p>
-                      <p className="font-bold text-white leading-tight">{p.name}</p>
-                    </div>
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); hidePlaylist(p.id); }}
-                    className="absolute top-2 right-2 p-1.5 bg-slate-800 text-slate-500 rounded-lg opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all"
-                    title="Remove Suggestion"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
               ))}
+              {visiblePlaylists.length === 0 && (
+                <p className="text-center text-xs text-gray-500 italic py-4">All suggestions hidden. Restore them below or add your own.</p>
+              )}
             </div>
 
             {hiddenPlaylists.length > 0 && (
-              <div className="flex justify-center pt-4">
-                <button onClick={restoreHidden} className="flex items-center gap-2 text-xs font-black text-slate-500 hover:text-violet-400 transition-colors uppercase tracking-widest px-4 py-2 bg-slate-900 border border-slate-800 rounded-full">
-                  <RefreshCw size={14} /> Restore {hiddenPlaylists.length} hidden suggestions
-                </button>
-              </div>
-            )}
-            {allPlaylists.length === 0 && (
-              <div className="text-center py-10 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
-                <p className="text-slate-500 font-bold mb-4">All suggestions hidden.</p>
-                <button onClick={restoreHidden} className="text-violet-500 font-black text-xs uppercase underline">Restore All</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const Loot = () => {
-    const [filter, setFilter] = useState('title');
-    const items = SHOP.filter(s => s.type === filter);
-
-    const buy = (item: any) => {
-      if (inv.includes(item.id)) {
-        setEq({ ...eq, [item.type]: item.id });
-        return;
-      }
-      if (hero.gold >= item.price) {
-        setHero({ ...hero, gold: hero.gold - item.price });
-        setInv([...inv, item.id]);
-        setEq({ ...eq, [item.type]: item.id });
-        setNotif(`Unlocked: ${item.name}!`);
-      } else {
-        alert("Not enough Gold Crystals!");
-      }
-    };
-
-    return (
-      <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-right-4 duration-700">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
-          <div>
-            <h2 className="text-4xl font-black text-white mb-2">LOOT LOCKER</h2>
-            <p className="text-slate-400 font-bold uppercase tracking-widest">Customize your legend</p>
-          </div>
-          <div className="flex bg-slate-900 p-2 rounded-2xl border border-slate-800">
-            {['title', 'avatar', 'frame', 'theme'].map(f => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`px-6 py-3 rounded-xl font-black text-xs uppercase transition-all ${filter === f ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
-                {f}s
+              <button
+                type="button"
+                onClick={restoreAllPlaylists}
+                className="w-full py-2 rounded-xl text-[11px] font-bold bg-white/5 hover:bg-white/10 text-gray-400 flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={12} /> Restore {hiddenPlaylists.length} hidden suggestion{hiddenPlaylists.length > 1 ? 's' : ''}
               </button>
-            ))}
+            )}
+
+            {active && (
+              <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                <iframe
+                  key={active.id}
+                  title={active.name}
+                  src={spotifyEmbedUrl(active)}
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  style={{ borderRadius: 12 }}
+                />
+                <a
+                  href={`https://open.spotify.com/${active.kind}/${active.spotifyId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1 text-[10px] text-gray-400 py-2 hover:text-green-400"
+                >
+                  <ExternalLink size={10} /> Open in Spotify if embed is blocked
+                </a>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map(item => {
-            const owned = inv.includes(item.id);
-            const active = eq[item.type as keyof typeof eq] === item.id;
-            const rarityColor = 
-              item.rarity === 'mythic' ? 'text-amber-400' : 
-              item.rarity === 'legendary' ? 'text-orange-500' :
-              item.rarity === 'epic' ? 'text-purple-500' :
-              item.rarity === 'rare' ? 'text-blue-500' : 'text-slate-400';
+          <div className="p-5 rounded-2xl border border-white/10 space-y-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h4 className="text-xs font-black uppercase text-gray-300 flex items-center gap-2"><Volume2 size={14} style={{ color: accent }} /> Procedural Ambience</h4>
+            <div className="grid grid-cols-4 gap-2">
+              {soundOpts.map(s => {
+                const on = synth.has(s.t);
+                return (
+                  <button key={s.t} onClick={() => toggleSynth(s.t)}
+                    className="p-2.5 rounded-xl text-xs flex flex-col items-center gap-1 border"
+                    style={on ? { background: `${accent}25`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#888' }}>
+                    <span className="text-lg">{s.icon}</span>
+                    <span className="font-bold text-[10px]">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            return (
-              <button key={item.id} onClick={() => buy(item)}
-                className={`p-6 rounded-[2rem] border-2 text-left transition-all relative overflow-hidden group ${active ? 'bg-violet-600/10 border-violet-500 shadow-xl' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}>
-                <div className="flex justify-between items-start mb-4">
-                  <div className={`text-[10px] font-black uppercase tracking-tighter px-2 py-1 rounded ${rarityColor} bg-white/5`}>
-                    {item.rarity}
-                  </div>
-                  {owned ? <Award className={active ? "text-violet-500" : "text-slate-600"} size={20} /> : <div className="text-yellow-400 font-black">🪙 {item.price}</div>}
+          <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h4 className="text-xs font-black uppercase mb-2 text-gray-300">Today's Sessions</h4>
+            {sessions.filter((s: FocusSession) => s.date === today).length === 0 ? (
+              <p className="text-xs text-gray-500 italic">No sessions logged yet.</p>
+            ) : (
+              sessions.filter((s: FocusSession) => s.date === today).map((s: FocusSession) => (
+                <div key={s.id} className="flex justify-between text-xs p-2 rounded-lg bg-white/[0.02]">
+                  <span>{s.label}</span>
+                  <span className="text-gray-400">{s.minutes}m</span>
                 </div>
-                <h4 className="text-xl font-black text-white mb-2 group-hover:translate-x-1 transition-transform">{item.name}</h4>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{owned ? (active ? 'EQUIPPED' : 'OWNED') : 'AVAILABLE'}</p>
-                {active && <div className="absolute top-0 right-0 w-12 h-12 bg-violet-600 text-white flex items-center justify-center rounded-bl-3xl"><CheckSquare size={16} /></div>}
-              </button>
-            );
-          })}
+              ))
+            )}
+          </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+}
+
+// ============================================
+// LOOT LOCKER
+// ============================================
+function LootView({ hero, inventory, equipped, buyItem, equipItem, accent }: any) {
+  const [cat, setCat] = useState<ShopType>('title');
+  const items = SHOP.filter(i => i.type === cat);
+  const tabs: { key: ShopType; label: string; icon: any }[] = [
+    { key: 'title', label: 'Titles', icon: BookOpen },
+    { key: 'avatar', label: 'Avatars', icon: User },
+    { key: 'frame', label: 'Frames', icon: Target },
+    { key: 'theme', label: 'Themes', icon: Music },
+  ];
 
   return (
-    <div className="min-h-screen bg-black text-slate-200 font-sans selection:bg-violet-500/30">
-      <Sidebar />
-      
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 inset-x-0 h-20 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 z-40 px-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <SwordLogo size={36} />
-          <h1 className="text-lg font-black tracking-tighter text-white">TASK FORGE</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>LOOT LOCKER</h2>
+          <p className="text-xs text-gray-400">70+ cosmetics · Earn gold by completing real work</p>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-white bg-slate-800 rounded-xl">
-          <Menu size={24} />
-        </button>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm font-black">
+          <Coins size={14} /> {hero.gold} Gold
+        </div>
       </div>
-
-      <main className="lg:ml-64 pt-28 lg:pt-10 p-6 md:p-10 pb-32">
-        <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-            {activeTab === 'dash' && <Dashboard />}
-            {activeTab === 'habits' && <Habits />}
-            {activeTab === 'todos' && <Todos />}
-            {activeTab === 'focus' && <Focus />}
-            {activeTab === 'loot' && <Loot />}
-          </motion.div>
-        </AnimatePresence>
-      </main>
-
-      <AnimatePresence>{notif && <Notification msg={notif} onClear={() => setNotif(null)} />}</AnimatePresence>
-      {showTut && <Tut />}
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #4c1d95; border-radius: 10px; }
-      `}</style>
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {tabs.map(t => {
+          const Ic = t.icon;
+          const active = cat === t.key;
+          const count = SHOP.filter(i => i.type === t.key).length;
+          const owned = SHOP.filter(i => i.type === t.key && inventory.includes(i.id)).length;
+          return (
+            <button key={t.key} onClick={() => setCat(t.key)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap"
+              style={active ? { background: `${accent}25`, color: accent, border: `1px solid ${accent}40` } : { background: 'rgba(255,255,255,0.03)', color: '#888' }}>
+              <Ic size={14} /> {t.label} <span className="text-[10px] opacity-60">({owned}/{count})</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {items.map(item => {
+          const owned = inventory.includes(item.id);
+          const isEq = equipped[item.type] === item.id;
+          const rc = rarityColor(item.rarity);
+          const canAfford = hero.gold >= item.cost;
+          return (
+            <div key={item.id} className="p-5 rounded-2xl border relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderColor: isEq ? `${accent}55` : 'rgba(255,255,255,0.1)' }}>
+              <div className="absolute top-2 right-2 text-[9px] font-black uppercase px-2 py-0.5 rounded" style={{ background: `${rc}20`, color: rc }}>{item.rarity}</div>
+              <div className="flex items-start gap-3 mb-4 mt-1">
+                <div className="text-3xl">{item.icon}</div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-black">{item.name}</h4>
+                  <p className="text-xs text-gray-400 mt-1">{item.description}</p>
+                </div>
+              </div>
+              {isEq ? (
+                <div className="py-2 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-black text-center flex items-center justify-center gap-1.5">
+                  <Check size={14} /> Equipped
+                </div>
+              ) : owned ? (
+                <button onClick={() => equipItem(item)} className="w-full py-2 rounded-xl text-xs font-black" style={{ background: `${accent}25`, color: accent, border: `1px solid ${accent}40` }}>Equip</button>
+              ) : (
+                <button onClick={() => buyItem(item)} disabled={!canAfford} className="w-full py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 disabled:opacity-40"
+                  style={{ background: canAfford ? accent : 'rgba(255,255,255,0.03)', color: canAfford ? '#000' : '#666' }}>
+                  {canAfford ? <><Coins size={12} /> Buy · {item.cost}</> : <><Lock size={12} /> {item.cost} Gold</>}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
