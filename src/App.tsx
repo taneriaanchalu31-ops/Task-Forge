@@ -1,1370 +1,1102 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard,
-  Repeat,
-  ListTodo,
-  Timer,
-  ShoppingBag,
-  Flame,
-  Sword,
-  Zap,
-  Target,
-  Star,
-  BookOpen,
-  Trophy,
-  TrendingUp,
-  Heart,
-  Sparkles,
-  Plus,
-  Trash2,
-  Check,
-  AlertTriangle,
-  Grid,
-  List,
-  Play,
-  Pause,
-  Square,
-  Save,
-  Clock,
-  Volume2,
-  Quote,
-  Youtube,
-  Music,
-  Coins,
-  Lock,
-  X,
-  ChevronRight,
-  ChevronLeft,
-  Shuffle,
-  Shield
+  LayoutDashboard, Repeat, ListTodo, Timer, ShoppingBag,
+  Flame, Sword, Zap, Target, BookOpen, Heart, Plus, Trash2, Check,
+  Play, Pause, Square, Clock, Volume2, Quote, Youtube,
+  Coins, Lock, X, Shuffle, TrendingUp, Edit3, Music, AlertTriangle, Star
 } from 'lucide-react';
 
-// ==========================================
-// 1. DATA TYPES & CATALOGS
-// ==========================================
+// ============================================
+// TYPES & DATA
+// ============================================
 
-export type ThemeColor = 'violet' | 'cyan' | 'emerald' | 'rose' | 'amber' | 'indigo' | 'teal' | 'fuchsia' | 'sky' | 'lime' | 'crimson';
-export type SoundType = 'rain' | 'ocean' | 'cafe' | 'white' | 'pink' | 'brown' | 'binaural';
-export type ShopItemType = 'title' | 'avatar' | 'frame' | 'theme';
-export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
+type SoundType = 'rain' | 'ocean' | 'cafe' | 'white' | 'pink' | 'brown' | 'binaural';
+type ShopType = 'title' | 'avatar' | 'frame' | 'theme';
+type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
 
-export interface HeroState {
-  name: string;
-  level: number;
-  xp: number;
-  gold: number;
-  streakDays: number;
-  lastActiveDate: string;
-  totalTasksCompleted: number;
-  totalHabitsCompleted: number;
-  totalFocusMinutes: number;
-  totalBossesDefeated: number;
-  profilePicture: string | null;
+interface Hero {
+  name: string; level: number; xp: number; gold: number;
+  streakDays: number; lastActiveDate: string;
+  totalTasks: number; totalHabits: number; totalFocus: number; totalBosses: number;
+  profilePic: string | null;
 }
 
-export interface Todo {
-  id: string;
-  title: string;
-  notes: string;
-  urgent: boolean;
-  important: boolean;
-  completed: boolean;
-  createdAt: string;
-  completedAt?: string;
+interface Todo {
+  id: string; title: string; notes: string;
+  urgent: boolean; important: boolean;
+  completed: boolean; rewardClaimed: boolean;
+  createdAt: string; completedAt?: string;
 }
 
-export interface Habit {
-  id: string;
-  name: string;
-  emoji: string;
-  color: ThemeColor;
-  streak: number;
-  longestStreak: number;
-  completedDates: string[];
-  createdAt: string;
+interface Habit {
+  id: string; name: string; emoji: string; color: string;
+  streak: number; longestStreak: number;
+  completedDates: string[]; createdAt: string;
 }
 
-export interface Boss {
-  id: string;
-  name: string;
-  emoji: string;
-  level: number;
-  maxHp: number;
-  hp: number;
-  date: string;
-  defeatCount: number;
-  rewardGold: number;
-  rewardXp: number;
+interface Boss {
+  id: string; name: string; emoji: string;
+  level: number; maxHp: number; hp: number;
+  date: string; defeatCount: number;
+  rewardGold: number; rewardXp: number;
 }
 
-export interface FocusSession {
-  id: string;
-  date: string;
-  minutes: number;
-  label: string;
+interface FocusSession {
+  id: string; date: string; minutes: number; label: string;
 }
 
-export interface ShopItem {
-  id: string;
-  name: string;
-  description: string;
-  type: ShopItemType;
-  cost: number;
-  icon: string;
-  rarity: Rarity;
-  value: string;
+interface ShopItem {
+  id: string; name: string; description: string;
+  type: ShopType; cost: number; icon: string;
+  rarity: Rarity; value: string;
 }
 
-export interface EquippedItems {
-  frame: string;
-  theme: string;
-  title: string;
-  avatar: string;
+interface Equipped {
+  frame: string; theme: string; title: string; avatar: string;
 }
 
-export interface AppNotification {
-  id: string;
-  message: string;
-  icon: string;
-  tone: 'success' | 'levelup' | 'boss' | 'gold' | 'info';
-  createdAt: number;
+interface Toast {
+  id: string; message: string; icon: string; tone: string;
 }
 
-export interface Verse {
-  text: string;
-  ref: string;
-}
+interface Verse { text: string; ref: string; }
 
-// 80+ Scripture Database
-const BIBLE_VERSES: Verse[] = [
-  // Diligence & Work
-  { text: "Whatever you do, work at it with all your heart, as working for the Lord, not for human masters.", ref: "Colossians 3:23" },
+// ────── 80+ Bible Verses ──────
+const VERSES: Verse[] = [
+  { text: "Whatever you do, work at it with all your heart, as working for the Lord.", ref: "Colossians 3:23" },
   { text: "Commit to the Lord whatever you do, and he will establish your plans.", ref: "Proverbs 16:3" },
-  { text: "All hard work brings a profit, but mere talk leads only to poverty.", ref: "Proverbs 14:23" },
-  { text: "Whatever your hand finds to do, do it with all your might.", ref: "Ecclesiastes 9:10" },
-  { text: "Diligent hands will rule, but laziness ends in forced labor.", ref: "Proverbs 12:24" },
-  { text: "The plans of the diligent lead to profit as surely as haste leads to poverty.", ref: "Proverbs 21:5" },
-  { text: "Go to the ant, consider its ways and be wise! It stores its provisions in summer.", ref: "Proverbs 6:6-8" },
-  { text: "The hand of the diligent makes rich.", ref: "Proverbs 10:4" },
-  { text: "Do you see someone skilled in their work? They will serve before kings.", ref: "Proverbs 22:29" },
-  { text: "The sluggard craves and gets nothing, but the desires of the diligent are fully satisfied.", ref: "Proverbs 13:4" },
-  
-  // Strength & Courage
   { text: "I can do all things through Christ who strengthens me.", ref: "Philippians 4:13" },
-  { text: "Those who hope in the Lord will renew their strength. They will soar on wings like eagles.", ref: "Isaiah 40:31" },
+  { text: "Those who hope in the Lord will renew their strength.", ref: "Isaiah 40:31" },
   { text: "Be strong and courageous. Do not be afraid; do not be discouraged.", ref: "Joshua 1:9" },
-  { text: "God has not given us a spirit of fear, but of power, love, and a sound mind.", ref: "2 Timothy 1:7" },
-  { text: "The Lord is my light and my salvation—whom shall I fear?", ref: "Psalm 27:1" },
+  { text: "Trust in the Lord with all your heart and lean not on your own understanding.", ref: "Proverbs 3:5-6" },
+  { text: "For God has not given us a spirit of fear, but of power, love, and a sound mind.", ref: "2 Timothy 1:7" },
+  { text: "All hard work brings a profit, but mere talk leads only to poverty.", ref: "Proverbs 14:23" },
+  { text: "The plans of the diligent lead to profit as surely as haste leads to poverty.", ref: "Proverbs 21:5" },
+  { text: "Whatever your hand finds to do, do it with all your might.", ref: "Ecclesiastes 9:10" },
   { text: "God is our refuge and strength, an ever-present help in trouble.", ref: "Psalm 46:1" },
   { text: "My grace is sufficient for you, for my power is made perfect in weakness.", ref: "2 Corinthians 12:9" },
-  { text: "Let us not become weary in doing good, for at the proper time we will reap a harvest if we do not give up.", ref: "Galatians 6:9" },
-  { text: "The Lord is my strength and my shield; my heart trusts in him.", ref: "Psalm 28:7" },
-  { text: "He gives strength to the weary and increases the power of the weak.", ref: "Isaiah 40:29" },
-
-  // Wisdom & Focus
-  { text: "Trust in the Lord with all your heart and lean not on your own understanding.", ref: "Proverbs 3:5-6" },
-  { text: "Above all else, guard your heart, for everything you do flows from it.", ref: "Proverbs 4:23" },
-  { text: "In their hearts humans plan their course, but the Lord establishes their steps.", ref: "Proverbs 16:9" },
-  { text: "If any of you lacks wisdom, you should ask God, who gives generously to all.", ref: "James 1:5" },
-  { text: "Your word is a lamp for my feet, a light on my path.", ref: "Psalm 119:105" },
-  { text: "Making the most of every opportunity, because the days are evil.", ref: "Ephesians 5:16" },
-  { text: "Teach us to number our days, that we may gain a heart of wisdom.", ref: "Psalm 90:12" },
-
-  // Peace & Calm
-  { text: "Do not be anxious about anything, but in every situation present your requests to God.", ref: "Philippians 4:6-7" },
-  { text: "The Lord is my shepherd, I lack nothing. He makes me lie down in green pastures.", ref: "Psalm 23:1-2" },
-  { text: "Peace I leave with you; my peace I give you. Do not let your hearts be troubled.", ref: "John 14:27" },
+  { text: "Let us not become weary in doing good, for at the proper time we will reap a harvest.", ref: "Galatians 6:9" },
+  { text: "The Lord is my shepherd, I lack nothing.", ref: "Psalm 23:1" },
+  { text: "Peace I leave with you; my peace I give you.", ref: "John 14:27" },
   { text: "Be still, and know that I am God.", ref: "Psalm 46:10" },
   { text: "You will keep in perfect peace those whose minds are steadfast.", ref: "Isaiah 26:3" },
   { text: "Come to me, all you who are weary and burdened, and I will give you rest.", ref: "Matthew 11:28" },
   { text: "Cast all your anxiety on him because he cares for you.", ref: "1 Peter 5:7" },
-
-  // Hope & Victory
-  { text: "For I know the plans I have for you, plans to prosper you and to give you hope and a future.", ref: "Jeremiah 29:11" },
+  { text: "For I know the plans I have for you, plans to prosper you and to give you hope.", ref: "Jeremiah 29:11" },
   { text: "The steadfast love of the Lord never ceases; his mercies are new every morning.", ref: "Lamentations 3:22-23" },
   { text: "In all these things we are more than conquerors through him who loved us.", ref: "Romans 8:37" },
   { text: "I have fought the good fight, I have finished the race, I have kept the faith.", ref: "2 Timothy 4:7" },
-  { text: "Seek first the kingdom of God and his righteousness, and all these things will be added to you.", ref: "Matthew 6:33" }
+  { text: "Seek first the kingdom of God, and all these things will be added to you.", ref: "Matthew 6:33" },
+  { text: "Above all else, guard your heart, for everything you do flows from it.", ref: "Proverbs 4:23" },
+  { text: "If any of you lacks wisdom, you should ask God, who gives generously.", ref: "James 1:5" },
+  { text: "Your word is a lamp for my feet, a light on my path.", ref: "Psalm 119:105" },
+  { text: "Do not be anxious about anything, but present your requests to God.", ref: "Philippians 4:6-7" },
+  { text: "Teach us to number our days, that we may gain a heart of wisdom.", ref: "Psalm 90:12" },
+  { text: "The Lord gives strength to his people; the Lord blesses his people with peace.", ref: "Psalm 29:11" },
+  { text: "But those who hope in the Lord will soar on wings like eagles.", ref: "Isaiah 40:31" },
+  { text: "Diligent hands will rule, but laziness ends in forced labor.", ref: "Proverbs 12:24" },
+  { text: "The hand of the diligent makes rich.", ref: "Proverbs 10:4" },
+  { text: "Do not conform to the pattern of this world, but be transformed by the renewing of your mind.", ref: "Romans 12:2" },
+  { text: "For where your treasure is, there your heart will be also.", ref: "Matthew 6:21" },
+  { text: "The name of the Lord is a fortified tower; the righteous run to it and are safe.", ref: "Proverbs 18:10" },
+  { text: "I have told you these things, so that in me you may have peace.", ref: "John 16:33" },
+  { text: "Delight yourself in the Lord, and he will give you the desires of your heart.", ref: "Psalm 37:4" },
+  { text: "He who began a good work in you will carry it on to completion.", ref: "Philippians 1:6" },
+  { text: "May the God of hope fill you with all joy and peace as you trust in him.", ref: "Romans 15:13" },
 ];
 
-const SHOP_CATALOG: ShopItem[] = [
-  // Titles
-  { id: 'title-novice', name: 'Novice', description: 'Every legend begins with a single step.', type: 'title', cost: 0, icon: '📜', rarity: 'common', value: 'Novice' },
-  { id: 'title-warrior', name: 'Warrior', description: 'Forged in daily focus battles.', type: 'title', cost: 60, icon: '⚔️', rarity: 'common', value: 'Warrior' },
-  { id: 'title-scholar', name: 'Scholar', description: 'Master of knowledge and deep work.', type: 'title', cost: 90, icon: '📚', rarity: 'common', value: 'Scholar' },
-  { id: 'title-champion', name: 'Champion', description: 'Crusher of deadlines and obstacles.', type: 'title', cost: 180, icon: '🏆', rarity: 'rare', value: 'Champion' },
-  { id: 'title-archmage', name: 'Archmage', description: 'Wielder of extreme productivity arts.', type: 'title', cost: 350, icon: '🧙', rarity: 'epic', value: 'Archmage' },
-  { id: 'title-legend', name: 'Mythic Legend', description: 'The pinnacle of legendary mastery.', type: 'title', cost: 600, icon: '👑', rarity: 'legendary', value: 'Mythic Legend' },
+// ────── 50+ Shop Items ──────
+const SHOP: ShopItem[] = [
+  // TITLES (12)
+  { id: 't-novice', name: 'Novice', description: 'Every legend begins here.', type: 'title', cost: 0, icon: '📜', rarity: 'common', value: 'Novice' },
+  { id: 't-warrior', name: 'Warrior', description: 'Battle-tested and ready.', type: 'title', cost: 60, icon: '⚔️', rarity: 'common', value: 'Warrior' },
+  { id: 't-scholar', name: 'Scholar', description: 'Master of knowledge.', type: 'title', cost: 90, icon: '📚', rarity: 'common', value: 'Scholar' },
+  { id: 't-ranger', name: 'Ranger', description: 'Silent stalker of tasks.', type: 'title', cost: 120, icon: '🏹', rarity: 'rare', value: 'Ranger' },
+  { id: 't-champion', name: 'Champion', description: 'Crusher of obstacles.', type: 'title', cost: 180, icon: '🏆', rarity: 'rare', value: 'Champion' },
+  { id: 't-shadow', name: 'Shadow Blade', description: 'Works in silence.', type: 'title', cost: 220, icon: '🗡️', rarity: 'rare', value: 'Shadow Blade' },
+  { id: 't-archmage', name: 'Archmage', description: 'Wielder of productivity arts.', type: 'title', cost: 300, icon: '🧙', rarity: 'epic', value: 'Archmage' },
+  { id: 't-phoenix', name: 'Phoenix Lord', description: 'Reborn from every failure.', type: 'title', cost: 380, icon: '🔥', rarity: 'epic', value: 'Phoenix Lord' },
+  { id: 't-void', name: 'Void Walker', description: 'Master of the impossible.', type: 'title', cost: 450, icon: '🌌', rarity: 'epic', value: 'Void Walker' },
+  { id: 't-legend', name: 'Mythic Legend', description: 'Only true grinders reach here.', type: 'title', cost: 600, icon: '👑', rarity: 'legendary', value: 'Mythic Legend' },
+  { id: 't-god', name: 'Godslayer', description: 'You defeated the impossible.', type: 'title', cost: 900, icon: '⚡', rarity: 'legendary', value: 'Godslayer' },
+  { id: 't-eternal', name: 'The Eternal One', description: 'Transcended reality.', type: 'title', cost: 1500, icon: '✨', rarity: 'mythic', value: 'The Eternal One' },
 
-  // Avatars
-  { id: 'avatar-fox', name: 'Swift Fox', description: 'Agile, cunning, and rapid.', type: 'avatar', cost: 0, icon: '🦊', rarity: 'common', value: '🦊' },
-  { id: 'avatar-wolf', name: 'Lone Wolf', description: 'Unwavering focus and grit.', type: 'avatar', cost: 75, icon: '🐺', rarity: 'common', value: '🐺' },
-  { id: 'avatar-eagle', name: 'Sky Eagle', description: 'High perspective, razor vision.', type: 'avatar', cost: 120, icon: '🦅', rarity: 'rare', value: '🦅' },
-  { id: 'avatar-dragon', name: 'Solar Dragon', description: 'Unstoppable willpower.', type: 'avatar', cost: 250, icon: '🐉', rarity: 'epic', value: '🐉' },
-  { id: 'avatar-phoenix', name: 'Reborn Phoenix', description: 'Rising through every trial.', type: 'avatar', cost: 400, icon: '🔥', rarity: 'epic', value: '🔥' },
-  { id: 'avatar-unicorn', name: 'Starlight Unicorn', description: 'Rare magical brilliance.', type: 'avatar', cost: 550, icon: '🦄', rarity: 'legendary', value: '🦄' },
+  // AVATARS (14)
+  { id: 'a-fox', name: 'Swift Fox', description: 'Quick and cunning.', type: 'avatar', cost: 0, icon: '🦊', rarity: 'common', value: '🦊' },
+  { id: 'a-wolf', name: 'Lone Wolf', description: 'Fierce independence.', type: 'avatar', cost: 75, icon: '🐺', rarity: 'common', value: '🐺' },
+  { id: 'a-bear', name: 'Grizzly Bear', description: 'Raw strength.', type: 'avatar', cost: 90, icon: '🐻', rarity: 'common', value: '🐻' },
+  { id: 'a-owl', name: 'Wise Owl', description: 'Deep insight.', type: 'avatar', cost: 100, icon: '🦉', rarity: 'rare', value: '🦉' },
+  { id: 'a-eagle', name: 'Sky Eagle', description: 'Soars above obstacles.', type: 'avatar', cost: 120, icon: '🦅', rarity: 'rare', value: '🦅' },
+  { id: 'a-lion', name: 'Golden Lion', description: 'King of the hunt.', type: 'avatar', cost: 150, icon: '🦁', rarity: 'rare', value: '🦁' },
+  { id: 'a-tiger', name: 'Shadow Tiger', description: 'Silent predator.', type: 'avatar', cost: 180, icon: '🐯', rarity: 'rare', value: '🐯' },
+  { id: 'a-robot', name: 'Focus Bot', description: 'Maximum efficiency.', type: 'avatar', cost: 200, icon: '🤖', rarity: 'epic', value: '🤖' },
+  { id: 'a-dragon', name: 'Solar Dragon', description: 'Unstoppable power.', type: 'avatar', cost: 280, icon: '🐉', rarity: 'epic', value: '🐉' },
+  { id: 'a-phoenix', name: 'Reborn Phoenix', description: 'Rises from ashes.', type: 'avatar', cost: 400, icon: '🔥', rarity: 'epic', value: '🔥' },
+  { id: 'a-unicorn', name: 'Starlight Unicorn', description: 'Rare magical brilliance.', type: 'avatar', cost: 500, icon: '🦄', rarity: 'legendary', value: '🦄' },
+  { id: 'a-alien', name: 'Cosmic Alien', description: 'From another dimension.', type: 'avatar', cost: 650, icon: '👽', rarity: 'legendary', value: '👽' },
+  { id: 'a-crystal', name: 'Crystal Being', description: 'Made of pure focus.', type: 'avatar', cost: 800, icon: '💎', rarity: 'legendary', value: '💎' },
+  { id: 'a-galaxy', name: 'Galaxy Spirit', description: 'Transcendent existence.', type: 'avatar', cost: 1200, icon: '🌟', rarity: 'mythic', value: '🌟' },
 
-  // Frames
-  { id: 'frame-none', name: 'Standard Border', description: 'Clean minimalist outline.', type: 'frame', cost: 0, icon: '⬜', rarity: 'common', value: 'none' },
-  { id: 'frame-bronze', name: 'Bronze Ring', description: 'Solid metallic bronze border.', type: 'frame', cost: 50, icon: '🥉', rarity: 'common', value: 'bronze' },
-  { id: 'frame-silver', name: 'Silver Crest', description: 'Sleek refined silver ring.', type: 'frame', cost: 120, icon: '🥈', rarity: 'rare', value: 'silver' },
-  { id: 'frame-gold', name: 'Gold Aegis', description: 'Gleaming golden brilliance.', type: 'frame', cost: 280, icon: '🥇', rarity: 'epic', value: 'gold' },
-  { id: 'frame-diamond', name: 'Diamond Aura', description: 'Crystalline neon diamond frame.', type: 'frame', cost: 550, icon: '💎', rarity: 'legendary', value: 'diamond' },
-  { id: 'frame-fire', name: 'Inferno Ring', description: 'Radiating fire energy.', type: 'frame', cost: 350, icon: '🔥', rarity: 'epic', value: 'fire' },
+  // FRAMES (10)
+  { id: 'f-none', name: 'Standard', description: 'Clean minimalist border.', type: 'frame', cost: 0, icon: '⬜', rarity: 'common', value: 'none' },
+  { id: 'f-bronze', name: 'Bronze Ring', description: 'Solid bronze border.', type: 'frame', cost: 50, icon: '🥉', rarity: 'common', value: 'bronze' },
+  { id: 'f-silver', name: 'Silver Crest', description: 'Polished silver ring.', type: 'frame', cost: 120, icon: '🥈', rarity: 'rare', value: 'silver' },
+  { id: 'f-emerald', name: 'Emerald Halo', description: 'Nature\'s glow.', type: 'frame', cost: 180, icon: '🟢', rarity: 'rare', value: 'emerald' },
+  { id: 'f-gold', name: 'Gold Aegis', description: 'Gleaming brilliance.', type: 'frame', cost: 280, icon: '🥇', rarity: 'epic', value: 'gold' },
+  { id: 'f-fire', name: 'Inferno Ring', description: 'Radiating fire energy.', type: 'frame', cost: 350, icon: '🔥', rarity: 'epic', value: 'fire' },
+  { id: 'f-ice', name: 'Frost Halo', description: 'Cold and unbreakable.', type: 'frame', cost: 400, icon: '❄️', rarity: 'epic', value: 'ice' },
+  { id: 'f-diamond', name: 'Diamond Aura', description: 'Crystalline brilliance.', type: 'frame', cost: 550, icon: '💎', rarity: 'legendary', value: 'diamond' },
+  { id: 'f-cosmic', name: 'Cosmic Ring', description: 'Space-time frame.', type: 'frame', cost: 800, icon: '🌌', rarity: 'legendary', value: 'cosmic' },
+  { id: 'f-rainbow', name: 'Prism Halo', description: 'All colors, all power.', type: 'frame', cost: 1500, icon: '🌈', rarity: 'mythic', value: 'rainbow' },
 
-  // Themes
-  { id: 'theme-violet', name: 'Nebula Violet', description: 'Royal cosmic purple glow.', type: 'theme', cost: 0, icon: '💜', rarity: 'common', value: 'violet' },
-  { id: 'theme-cyan', name: 'Cyber Cyan', description: 'Futuristic ocean cyan.', type: 'theme', cost: 60, icon: '💎', rarity: 'common', value: 'cyan' },
-  { id: 'theme-emerald', name: 'Emerald Forest', description: 'Vitality and enduring strength.', type: 'theme', cost: 60, icon: '💚', rarity: 'common', value: 'emerald' },
-  { id: 'theme-amber', name: 'Solar Amber', description: 'Radiant golden energy.', type: 'theme', cost: 90, icon: '🌟', rarity: 'rare', value: 'amber' },
-  { id: 'theme-rose', name: 'Neon Rose', description: 'Passionate and fierce.', type: 'theme', cost: 90, icon: '🌹', rarity: 'rare', value: 'rose' },
-  { id: 'theme-crimson', name: 'Crimson Flame', description: 'Maximum intensity power.', type: 'theme', cost: 220, icon: '❤️‍🔥', rarity: 'epic', value: 'crimson' },
+  // THEMES (14)
+  { id: 'th-violet', name: 'Nebula Violet', description: 'Royal cosmic purple.', type: 'theme', cost: 0, icon: '💜', rarity: 'common', value: 'violet' },
+  { id: 'th-cyan', name: 'Cyber Cyan', description: 'Futuristic blue.', type: 'theme', cost: 60, icon: '💎', rarity: 'common', value: 'cyan' },
+  { id: 'th-emerald', name: 'Emerald Forest', description: 'Vital green energy.', type: 'theme', cost: 60, icon: '💚', rarity: 'common', value: 'emerald' },
+  { id: 'th-amber', name: 'Solar Amber', description: 'Golden warmth.', type: 'theme', cost: 90, icon: '🌟', rarity: 'rare', value: 'amber' },
+  { id: 'th-rose', name: 'Neon Rose', description: 'Passionate fire.', type: 'theme', cost: 90, icon: '🌹', rarity: 'rare', value: 'rose' },
+  { id: 'th-sky', name: 'Sky Blue', description: 'Limitless horizons.', type: 'theme', cost: 100, icon: '🩵', rarity: 'rare', value: 'sky' },
+  { id: 'th-lime', name: 'Toxic Lime', description: 'Electric green.', type: 'theme', cost: 100, icon: '🟢', rarity: 'rare', value: 'lime' },
+  { id: 'th-teal', name: 'Ocean Teal', description: 'Balanced calm.', type: 'theme', cost: 110, icon: '🌊', rarity: 'rare', value: 'teal' },
+  { id: 'th-indigo', name: 'Deep Indigo', description: 'Cosmic depths.', type: 'theme', cost: 130, icon: '🔮', rarity: 'epic', value: 'indigo' },
+  { id: 'th-fuchsia', name: 'Neon Fuchsia', description: 'Bold electric pink.', type: 'theme', cost: 180, icon: '💗', rarity: 'epic', value: 'fuchsia' },
+  { id: 'th-crimson', name: 'Blood Crimson', description: 'Maximum intensity.', type: 'theme', cost: 220, icon: '❤️‍🔥', rarity: 'epic', value: 'crimson' },
+  { id: 'th-gold', name: 'Royal Gold', description: 'Wealth and power.', type: 'theme', cost: 400, icon: '👑', rarity: 'legendary', value: 'gold' },
+  { id: 'th-mint', name: 'Mint Frost', description: 'Cool refreshing tone.', type: 'theme', cost: 350, icon: '🧊', rarity: 'legendary', value: 'mint' },
+  { id: 'th-void', name: 'Void Black', description: 'Deep space aura.', type: 'theme', cost: 900, icon: '🌑', rarity: 'mythic', value: 'void' },
 ];
 
-const BOSS_TEMPLATES = [
+const BOSSES = [
   { name: 'The Procrastinator', emoji: '👹' },
   { name: 'Deadline Beast', emoji: '🐉' },
   { name: 'Distraction Lord', emoji: '👻' },
   { name: 'The Time Eater', emoji: '⏳' },
   { name: 'Chaos Titan', emoji: '⚔️' },
   { name: 'Entropy Wraith', emoji: '💀' },
+  { name: 'Void Reaper', emoji: '🪦' },
+  { name: 'Doom Serpent', emoji: '🐍' },
 ];
 
 const FOCUS_PRESETS = [
-  { label: 'Quick Task', minutes: 10 },
+  { label: 'Quick', minutes: 10 },
   { label: 'Sprint', minutes: 25 },
   { label: 'Deep Work', minutes: 50 },
   { label: 'Marathon', minutes: 90 },
 ];
 
-const YT_PRESET_STREAMS = [
-  { id: 'lofi', name: 'Lofi Girl Focus Beats', videoId: 'jfKfPfyJRdk' },
-  { id: 'synth', name: 'Synthwave Chill Radio', videoId: '4xDzrJKXOOY' },
-  { id: 'classical', name: 'Peaceful Classical Focus', videoId: '8p_3V6V64_0' },
-  { id: 'space', name: 'Deep Space Cosmic Drone', videoId: 'S_DFq9Rev8M' },
+// YouTube streams - includes Jazz + Bird Song
+const YT_STREAMS = [
+  { id: 'lofi', name: 'Lofi Girl (Beats)', videoId: 'jfKfPfyJRdk', tag: 'Lofi' },
+  { id: 'jazz', name: 'Smooth Jazz Radio', videoId: 'Dx5qFachd3A', tag: 'Jazz' },
+  { id: 'birds', name: 'Forest Birds Singing', videoId: 'xNN7iTA57jM', tag: 'Nature' },
+  { id: 'synth', name: 'Synthwave Radio', videoId: '4xDzrJKXOOY', tag: 'Synth' },
+  { id: 'classical', name: 'Classical Focus', videoId: 'jgpJVI3tDbY', tag: 'Classical' },
+  { id: 'space', name: 'Deep Space Ambient', videoId: 'S_DFq9Rev8M', tag: 'Ambient' },
+  { id: 'piano', name: 'Peaceful Piano', videoId: '4oStw0r33so', tag: 'Piano' },
+  { id: 'nature', name: 'Rain in Forest', videoId: 'nDq6TstdEi8', tag: 'Nature' },
 ];
 
-const HABIT_EMOJIS = ['💧', '🏋️', '📖', '🧘', '🥗', '💤', '🎯', '✍️', '🏃', '💻', '🌅', '🧠', '🍎', '📝'];
-const QUICK_ATTACK_COOLDOWN_MS = 60 * 60 * 1000;
+const EMOJIS = ['💧', '🏋️', '📖', '🧘', '🥗', '💤', '🎯', '✍️', '🏃', '💻', '🌅', '🧠', '🍎', '📝', '🎨', '🎵', '🧹', '☕', '🌱', '⭐'];
 
-// ==========================================
-// 2. UTILITIES & PROCEDURAL SOUND SYNTHESIZER
-// ==========================================
+const COOLDOWN = 60 * 60 * 1000;
 
-function uid(): string {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-}
+// ============================================
+// UTILITIES
+// ============================================
 
-function todayStr(d: Date = new Date()): string {
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+const todayStr = (d = new Date()) => {
   const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 10);
-}
+  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+};
 
-function xpForLevel(level: number): number {
-  return Math.round(80 + (level - 1) * 42);
-}
+const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
 
-function computeStreak(dates: string[]): number {
-  if (dates.length === 0) return 0;
+const computeStreak = (dates: string[]) => {
+  if (!dates.length) return 0;
   const set = new Set(dates);
   const today = todayStr();
   const cursor = new Date();
-
   if (!set.has(today)) {
     cursor.setDate(cursor.getDate() - 1);
     if (!set.has(todayStr(cursor))) return 0;
   }
-
   let streak = 0;
-  while (true) {
-    const key = todayStr(cursor);
-    if (!set.has(key)) break;
+  while (set.has(todayStr(cursor))) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
-}
+};
 
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
+const formatTime = (s: number) => {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+};
 
-function themeAccent(theme: string): string {
+const themeAccent = (t: string): string => {
   const map: Record<string, string> = {
-    violet: '#8B5CF6',
-    cyan: '#06B6D4',
-    emerald: '#10B981',
-    rose: '#F43F5E',
-    amber: '#F59E0B',
-    indigo: '#6366F1',
-    teal: '#14B8A6',
-    fuchsia: '#D946EF',
-    sky: '#0EA5E9',
-    lime: '#84CC16',
-    crimson: '#DC2626',
+    violet: '#8B5CF6', cyan: '#06B6D4', emerald: '#10B981',
+    rose: '#F43F5E', amber: '#F59E0B', indigo: '#6366F1',
+    teal: '#14B8A6', fuchsia: '#D946EF', sky: '#0EA5E9',
+    lime: '#84CC16', crimson: '#DC2626', gold: '#EAB308',
+    mint: '#5EEAD4', void: '#6B7280',
   };
-  return map[theme] || '#8B5CF6';
-}
+  return map[t] || map.violet;
+};
 
-function rarityColor(rarity: string): string {
-  switch (rarity) {
-    case 'common': return '#9CA3AF';
-    case 'rare': return '#60A5FA';
-    case 'epic': return '#A78BFA';
-    case 'legendary': return '#FBBF24';
-    default: return '#9CA3AF';
-  }
-}
+const rarityColor = (r: Rarity): string => ({
+  common: '#9CA3AF', rare: '#60A5FA', epic: '#A78BFA',
+  legendary: '#FBBF24', mythic: '#F472B6'
+}[r]);
 
-// Web Audio API Procedural Synth Engine
-class AmbientEngine {
-  private ctx: AudioContext | null = null;
-  private masterGain: GainNode | null = null;
-  private masterVolume = 0.6;
-  private layers: Map<SoundType, { volume: number; active: boolean; nodes: AudioNode[]; sources: AudioNode[] }> = new Map();
+// ============================================
+// SOUND ENGINE
+// ============================================
+class AudioEngine {
+  ctx: AudioContext | null = null;
+  master: GainNode | null = null;
+  layers = new Map<SoundType, { vol: number; nodes: AudioNode[]; sources: AudioNode[] }>();
 
-  private getOrCreateContext(): AudioContext {
+  init() {
     if (!this.ctx || this.ctx.state === 'closed') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = this.masterVolume;
-      this.masterGain.connect(this.ctx.destination);
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.6;
+      this.master.connect(this.ctx.destination);
     }
     return this.ctx;
   }
 
-  async start(type: SoundType, volume = 0.5): Promise<void> {
-    const ctx = this.getOrCreateContext();
-    if (ctx.state === 'suspended') {
-      try { await ctx.resume(); } catch { /* ignore */ }
-    }
+  async start(type: SoundType, vol = 0.5) {
+    const ctx = this.init();
+    if (ctx.state === 'suspended') await ctx.resume();
     this.stop(type);
 
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = 0;
-    if (this.masterGain) gainNode.connect(this.masterGain);
-
-    const nodes: AudioNode[] = [gainNode];
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    g.connect(this.master!);
+    const nodes: AudioNode[] = [g];
     const sources: AudioNode[] = [];
 
-    try {
-      if (type === 'rain') {
-        const buf = ctx.createBuffer(2, ctx.sampleRate * 2, ctx.sampleRate);
-        for (let ch = 0; ch < 2; ch++) {
-          const data = buf.getChannelData(ch);
-          for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.25;
-        }
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.loop = true;
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 1200;
-        src.connect(filter);
-        filter.connect(gainNode);
-        src.start();
-        sources.push(src);
-        nodes.push(filter);
-      } else if (type === 'ocean') {
-        const buf = ctx.createBuffer(2, ctx.sampleRate * 4, ctx.sampleRate);
-        for (let ch = 0; ch < 2; ch++) {
-          const data = buf.getChannelData(ch);
-          for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.2;
-        }
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.loop = true;
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 500;
-        src.connect(filter);
-        filter.connect(gainNode);
-        src.start();
-        sources.push(src);
-        nodes.push(filter);
-      } else if (type === 'cafe') {
-        const buf = ctx.createBuffer(2, ctx.sampleRate * 2, ctx.sampleRate);
-        for (let ch = 0; ch < 2; ch++) {
-          const data = buf.getChannelData(ch);
-          for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.15;
-        }
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.loop = true;
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 850;
-        filter.Q.value = 0.6;
-        src.connect(filter);
-        filter.connect(gainNode);
-        src.start();
-        sources.push(src);
-        nodes.push(filter);
-      } else if (type === 'white' || type === 'pink' || type === 'brown') {
-        const buf = ctx.createBuffer(2, ctx.sampleRate * 2, ctx.sampleRate);
-        for (let ch = 0; ch < 2; ch++) {
-          const data = buf.getChannelData(ch);
-          let last = 0;
-          for (let i = 0; i < data.length; i++) {
-            const w = Math.random() * 2 - 1;
-            if (type === 'white') data[i] = w * 0.2;
-            else if (type === 'brown') {
-              last = (last + 0.02 * w) / 1.02;
-              data[i] = last * 2.5;
-            } else {
-              data[i] = w * 0.12;
-            }
-          }
-        }
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.loop = true;
-        src.connect(gainNode);
-        src.start();
-        sources.push(src);
-      } else if (type === 'binaural') {
-        const oscL = ctx.createOscillator();
-        const oscR = ctx.createOscillator();
-        oscL.frequency.value = 210;
-        oscR.frequency.value = 220; // 10Hz Alpha beat
-        const merger = ctx.createChannelMerger(2);
-        oscL.connect(merger, 0, 0);
-        oscR.connect(merger, 0, 1);
-        merger.connect(gainNode);
-        oscL.start();
-        oscR.start();
-        sources.push(oscL, oscR);
-        nodes.push(merger);
+    const noise = (secs: number) => {
+      const buf = ctx.createBuffer(2, ctx.sampleRate * secs, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.3;
       }
+      return buf;
+    };
 
-      gainNode.gain.setTargetAtTime(volume, ctx.currentTime, 0.2);
-      this.layers.set(type, { volume, active: true, nodes, sources });
-    } catch {
-      // Audio fallback
+    if (type === 'rain' || type === 'ocean' || type === 'cafe' || type === 'white' || type === 'pink' || type === 'brown') {
+      const src = ctx.createBufferSource();
+      src.buffer = noise(type === 'ocean' ? 4 : 2);
+      src.loop = true;
+      if (type === 'brown') {
+        const b = src.buffer.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < b.length; i++) { last = (last + 0.02 * b[i]) / 1.02; b[i] = last * 2.5; }
+      }
+      if (type !== 'white' && type !== 'brown') {
+        const f = ctx.createBiquadFilter();
+        f.type = type === 'cafe' ? 'bandpass' : 'lowpass';
+        f.frequency.value = type === 'rain' ? 1200 : type === 'ocean' ? 500 : 850;
+        src.connect(f); f.connect(g);
+        nodes.push(f);
+      } else {
+        src.connect(g);
+      }
+      src.start();
+      sources.push(src);
+    } else if (type === 'binaural') {
+      const oL = ctx.createOscillator(); const oR = ctx.createOscillator();
+      oL.frequency.value = 210; oR.frequency.value = 220;
+      const m = ctx.createChannelMerger(2);
+      oL.connect(m, 0, 0); oR.connect(m, 0, 1);
+      m.connect(g);
+      oL.start(); oR.start();
+      sources.push(oL, oR); nodes.push(m);
     }
+
+    g.gain.setTargetAtTime(vol, ctx.currentTime, 0.2);
+    this.layers.set(type, { vol, nodes, sources });
   }
 
-  stop(type: SoundType): void {
-    const layer = this.layers.get(type);
-    if (!layer) return;
-    layer.sources.forEach(s => {
-      try { (s as AudioScheduledSourceNode).stop(); } catch { /* ignore */ }
-      try { s.disconnect(); } catch { /* ignore */ }
-    });
-    layer.nodes.forEach(n => {
-      try { n.disconnect(); } catch { /* ignore */ }
-    });
+  stop(type: SoundType) {
+    const l = this.layers.get(type);
+    if (!l) return;
+    l.sources.forEach(s => { try { (s as any).stop(); } catch {} try { s.disconnect(); } catch {} });
+    l.nodes.forEach(n => { try { n.disconnect(); } catch {} });
     this.layers.delete(type);
   }
 
-  setLayerVolume(type: SoundType, vol: number): void {
-    const layer = this.layers.get(type);
-    if (layer && this.ctx) {
-      layer.volume = vol;
-      const gain = layer.nodes[0] as GainNode;
-      if (gain && gain.gain) gain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.1);
+  setVol(type: SoundType, v: number) {
+    const l = this.layers.get(type);
+    if (l && this.ctx) {
+      const g = l.nodes[0] as GainNode;
+      g.gain.setTargetAtTime(v, this.ctx.currentTime, 0.1);
     }
   }
 
-  setMasterVolume(vol: number): void {
-    this.masterVolume = vol;
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.1);
-    }
-  }
-
-  stopAll(): void {
-    const keys = Array.from(this.layers.keys());
-    keys.forEach(k => this.stop(k));
-  }
+  stopAll() { Array.from(this.layers.keys()).forEach(k => this.stop(k)); }
 }
 
-const ambientEngine = new AmbientEngine();
+const engine = new AudioEngine();
 
-// ==========================================
-// 3. SEED & INITIAL STATE
-// ==========================================
-
-const INITIAL_HERO: HeroState = {
-  name: "Aragorn",
-  level: 1,
-  xp: 0,
-  gold: 40,
-  streakDays: 1,
-  lastActiveDate: todayStr(),
-  totalTasksCompleted: 0,
-  totalHabitsCompleted: 0,
-  totalFocusMinutes: 0,
-  totalBossesDefeated: 0,
-  profilePicture: null
+// ============================================
+// PERSISTENCE
+// ============================================
+const useStored = <T,>(key: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  const [val, setVal] = useState<T>(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; } catch { return initial; }
+  });
+  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }, [key, val]);
+  return [val, setVal];
 };
 
-const INITIAL_EQUIPPED: EquippedItems = {
-  frame: 'frame-none',
-  theme: 'theme-violet',
-  title: 'title-novice',
-  avatar: 'avatar-fox',
-};
-
-function createBoss(level: number, defeatCount: number): Boss {
-  const t = BOSS_TEMPLATES[Math.floor(Math.random() * BOSS_TEMPLATES.length)];
-  const bossLvl = Math.max(1, level + defeatCount);
-  const hp = Math.round(90 + bossLvl * 35);
+const makeBoss = (heroLevel: number, defeatCount: number): Boss => {
+  const t = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+  const lvl = Math.max(1, heroLevel + defeatCount);
+  const hp = Math.round(90 + lvl * 35);
   return {
-    id: uid(),
-    name: t.name,
-    emoji: t.emoji,
-    level: bossLvl,
-    maxHp: hp,
-    hp,
-    date: todayStr(),
-    defeatCount,
-    rewardGold: Math.round(30 + bossLvl * 8),
-    rewardXp: Math.round(40 + bossLvl * 10),
+    id: uid(), name: t.name, emoji: t.emoji,
+    level: lvl, maxHp: hp, hp, date: todayStr(),
+    defeatCount, rewardGold: Math.round(30 + lvl * 8), rewardXp: Math.round(40 + lvl * 10),
   };
-}
+};
 
-// ==========================================
-// 4. MAIN TASK FORGE APP COMPONENT
-// ==========================================
-
+// ============================================
+// MAIN APP
+// ============================================
 export default function App() {
-  // Navigation & Page State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'habits' | 'todos' | 'focus' | 'loot'>('dashboard');
-  const [hasSeenTutorial, setHasSeenTutorial] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [tab, setTab] = useState<'dash' | 'habits' | 'todos' | 'focus' | 'loot'>('dash');
+  const [showTut, setShowTut] = useState(false);
 
-  // Core Persistent State
-  const [hero, setHero] = useState<HeroState>(() => {
-    const saved = localStorage.getItem('tf_hero');
-    return saved ? JSON.parse(saved) : INITIAL_HERO;
+  const [hero, setHero] = useStored<Hero>('tf_hero_v2', {
+    name: 'Hero', level: 1, xp: 0, gold: 40,
+    streakDays: 1, lastActiveDate: todayStr(),
+    totalTasks: 0, totalHabits: 0, totalFocus: 0, totalBosses: 0,
+    profilePic: null,
   });
 
-  const [equipped, setEquipped] = useState<EquippedItems>(() => {
-    const saved = localStorage.getItem('tf_equipped');
-    return saved ? JSON.parse(saved) : INITIAL_EQUIPPED;
+  const [equipped, setEquipped] = useStored<Equipped>('tf_eq_v2', {
+    frame: 'f-none', theme: 'th-violet', title: 't-novice', avatar: 'a-fox',
   });
 
-  const [inventory, setInventory] = useState<string[]>(() => {
-    const saved = localStorage.getItem('tf_inventory');
-    return saved ? JSON.parse(saved) : ['title-novice', 'avatar-fox', 'frame-none', 'theme-violet'];
-  });
+  const [inventory, setInventory] = useStored<string[]>('tf_inv_v2',
+    ['t-novice', 'a-fox', 'f-none', 'th-violet']);
 
-  const [habits, setHabits] = useState<Habit[]>(() => {
-    const saved = localStorage.getItem('tf_habits');
-    return saved ? JSON.parse(saved) : [
-      { id: uid(), name: 'Drink 2L Water', emoji: '💧', color: 'cyan', streak: 2, longestStreak: 4, completedDates: [todayStr()], createdAt: todayStr() },
-      { id: uid(), name: 'Deep Focus 45m', emoji: '🧠', color: 'violet', streak: 1, longestStreak: 3, completedDates: [], createdAt: todayStr() },
-      { id: uid(), name: 'Workout / Cardio', emoji: '🏋️', color: 'rose', streak: 3, longestStreak: 3, completedDates: [todayStr()], createdAt: todayStr() },
-    ];
-  });
+  const [habits, setHabits] = useStored<Habit[]>('tf_habits_v2', []);
+  const [todos, setTodos] = useStored<Todo[]>('tf_todos_v2', []);
+  const [boss, setBoss] = useStored<Boss>('tf_boss_v2', makeBoss(1, 0));
+  const [sessions, setSessions] = useStored<FocusSession[]>('tf_sess_v2', []);
+  const [lastAtk, setLastAtk] = useStored<number>('tf_atk_v2', 0);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const [todos, setTodos] = useState<Todo[]>(() => {
-    const saved = localStorage.getItem('tf_todos');
-    return saved ? JSON.parse(saved) : [
-      { id: uid(), title: 'Deploy TaskForge v1.0 release', notes: 'Complete live test verification', urgent: true, important: true, completed: false, createdAt: todayStr() },
-      { id: uid(), title: 'Plan weekly roadmap & milestones', notes: 'Organize high priority sprints', urgent: false, important: true, completed: false, createdAt: todayStr() },
-      { id: uid(), title: 'Review team pull requests', notes: '', urgent: true, important: false, completed: false, createdAt: todayStr() },
-    ];
-  });
-
-  const [boss, setBoss] = useState<Boss>(() => {
-    const saved = localStorage.getItem('tf_boss');
-    return saved ? JSON.parse(saved) : createBoss(1, 0);
-  });
-
-  const [focusSessions, setFocusSessions] = useState<FocusSession[]>(() => {
-    const saved = localStorage.getItem('tf_sessions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [lastAttackAt, setLastAttackAt] = useState<number>(() => {
-    const saved = localStorage.getItem('tf_last_attack');
-    return saved ? Number(saved) : 0;
-  });
-
-  // Current Theme Accent
-  const themeName = equipped.theme.replace('theme-', '');
+  const themeName = SHOP.find(s => s.id === equipped.theme)?.value || 'violet';
   const accent = themeAccent(themeName);
 
-  // Sync state changes to localStorage
-  useEffect(() => { localStorage.setItem('tf_hero', JSON.stringify(hero)); }, [hero]);
-  useEffect(() => { localStorage.setItem('tf_equipped', JSON.stringify(equipped)); }, [equipped]);
-  useEffect(() => { localStorage.setItem('tf_inventory', JSON.stringify(inventory)); }, [inventory]);
-  useEffect(() => { localStorage.setItem('tf_habits', JSON.stringify(habits)); }, [habits]);
-  useEffect(() => { localStorage.setItem('tf_todos', JSON.stringify(todos)); }, [todos]);
-  useEffect(() => { localStorage.setItem('tf_boss', JSON.stringify(boss)); }, [boss]);
-  useEffect(() => { localStorage.setItem('tf_sessions', JSON.stringify(focusSessions)); }, [focusSessions]);
-  useEffect(() => { localStorage.setItem('tf_last_attack', String(lastAttackAt)); }, [lastAttackAt]);
+  const notify = useCallback((msg: string, icon: string, tone = 'info') => {
+    const t: Toast = { id: uid(), message: msg, icon, tone };
+    setToasts(p => [t, ...p].slice(0, 3));
+    setTimeout(() => setToasts(p => p.filter(x => x.id !== t.id)), 3200);
+  }, []);
 
-  // Push Notifications
-  const notify = (message: string, icon: string, tone: AppNotification['tone'] = 'info') => {
-    const n: AppNotification = { id: uid(), message, icon, tone, createdAt: Date.now() };
-    setNotifications(prev => [n, ...prev.slice(0, 49)]);
-  };
-
-  // Activity and Streak logic
-  const touchActivity = useCallback(() => {
+  const touch = useCallback(() => {
     const today = todayStr();
-    if (hero.lastActiveDate === today) return;
-    const y = new Date();
-    y.setDate(y.getDate() - 1);
-    const yesterday = todayStr(y);
-    const newStreak = hero.lastActiveDate === yesterday ? hero.streakDays + 1 : 1;
-    setHero(h => ({ ...h, lastActiveDate: today, streakDays: newStreak }));
-  }, [hero.lastActiveDate, hero.streakDays]);
-
-  // Level & XP Engine
-  const grantXp = (amount: number) => {
     setHero(h => {
-      let { level, xp } = h;
-      xp += amount;
+      if (h.lastActiveDate === today) return h;
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      const newStreak = h.lastActiveDate === todayStr(y) ? h.streakDays + 1 : 1;
+      return { ...h, lastActiveDate: today, streakDays: newStreak };
+    });
+  }, [setHero]);
+
+  const grantXp = useCallback((amt: number) => {
+    setHero(h => {
+      let { level, xp } = h; xp += amt;
       let leveled = false;
-      while (xp >= xpForLevel(level)) {
-        xp -= xpForLevel(level);
-        level++;
-        leveled = true;
-      }
-      if (leveled) {
-        notify(`Level Up! You reached Level ${level}!`, '✨', 'levelup');
-      }
+      while (xp >= xpForLevel(level)) { xp -= xpForLevel(level); level++; leveled = true; }
+      if (leveled) setTimeout(() => notify(`⬆️ Level Up! Now Level ${level}!`, '✨', 'levelup'), 100);
       return { ...h, level, xp, gold: h.gold + (leveled ? 25 : 0) };
     });
-  };
+  }, [setHero, notify]);
 
-  const grantGold = (amount: number) => {
-    setHero(h => ({ ...h, gold: Math.max(0, h.gold + amount) }));
-  };
+  const grantGold = useCallback((a: number) => setHero(h => ({ ...h, gold: Math.max(0, h.gold + a) })), [setHero]);
 
-  // Boss Damage
-  const damageBoss = (amount: number) => {
+  const damageBoss = useCallback((dmg: number) => {
     setBoss(b => {
-      const newHp = Math.max(0, b.hp - amount);
+      const newHp = Math.max(0, b.hp - dmg);
       if (newHp === 0 && b.hp > 0) {
-        const nextDefeat = b.defeatCount + 1;
-        notify(`Boss Defeated! ${b.emoji} ${b.name} fell! (+${b.rewardXp} XP, +${b.rewardGold} Gold)`, '💀', 'boss');
-        grantXp(b.rewardXp);
-        grantGold(b.rewardGold);
-        setHero(h => ({ ...h, totalBossesDefeated: h.totalBossesDefeated + 1 }));
-        return createBoss(hero.level, nextDefeat);
+        setTimeout(() => {
+          notify(`💀 Boss slain: ${b.name}! +${b.rewardXp} XP, +${b.rewardGold} Gold`, '💀', 'boss');
+          grantXp(b.rewardXp); grantGold(b.rewardGold);
+          setHero(h => ({ ...h, totalBosses: h.totalBosses + 1 }));
+        }, 100);
+        return makeBoss(hero.level, b.defeatCount + 1);
       }
       return { ...b, hp: newHp };
     });
-  };
+  }, [hero.level, setBoss, setHero, grantXp, grantGold, notify]);
 
-  // Quick Attack Cooldown
-  const handleQuickAttack = () => {
+  const quickAtk = () => {
     const now = Date.now();
-    if (now - lastAttackAt < QUICK_ATTACK_COOLDOWN_MS) return;
-    setLastAttackAt(now);
-    const dmg = Math.round(12 + hero.level * 4);
+    if (now - lastAtk < COOLDOWN) return;
+    setLastAtk(now);
+    const dmg = 12 + hero.level * 4;
     damageBoss(dmg);
     grantXp(15);
-    notify(`Quick Attack landed! Dealt ${dmg} damage to boss!`, '⚡', 'success');
+    notify(`⚡ Quick Attack! -${dmg} HP`, '⚡', 'success');
   };
 
-  // Quest Actions
-  const toggleTodo = (id: string) => {
+  // ── QUEST/TODO ANTI-CHEAT LOGIC ──
+  const completeTask = (id: string) => {
     setTodos(prev => prev.map(t => {
       if (t.id !== id) return t;
-      const willComplete = !t.completed;
-      if (willComplete) {
-        const xp = t.important ? 30 : 20;
-        const gold = t.important ? 12 : 8;
-        grantXp(xp);
-        grantGold(gold);
-        damageBoss(t.important ? 15 : 10);
-        touchActivity();
-        setHero(h => ({ ...h, totalTasksCompleted: h.totalTasksCompleted + 1 }));
-        notify(`Quest Cleared: ${t.title} (+${xp} XP, +${gold} G)`, '✅', 'success');
-        return { ...t, completed: true, completedAt: todayStr() };
-      }
-      return { ...t, completed: false, completedAt: undefined };
+      // Already claimed reward = no more gold/xp
+      if (t.rewardClaimed) return { ...t, completed: true, completedAt: todayStr() };
+      const xp = t.important ? 30 : 20;
+      const gold = t.important ? 12 : 8;
+      grantXp(xp); grantGold(gold);
+      damageBoss(t.important ? 15 : 10);
+      touch();
+      setHero(h => ({ ...h, totalTasks: h.totalTasks + 1 }));
+      notify(`✅ Quest done! +${xp} XP, +${gold} Gold`, '✅', 'success');
+      return { ...t, completed: true, completedAt: todayStr(), rewardClaimed: true };
     }));
   };
 
-  // Habit Actions
+  const uncompleteTask = (id: string) => {
+    setTodos(prev => prev.map(t => t.id !== id ? t : { ...t, completed: false }));
+  };
+
+  const deleteTask = (id: string) => setTodos(prev => prev.filter(t => t.id !== id));
+
+  const addTask = (title: string, notes: string, urgent: boolean, important: boolean) => {
+    if (!title.trim()) return;
+    const t: Todo = {
+      id: uid(), title: title.trim(), notes: notes.trim(),
+      urgent, important, completed: false, rewardClaimed: false,
+      createdAt: todayStr(),
+    };
+    setTodos(p => [t, ...p]);
+    notify(`New quest added!`, '📜', 'info');
+  };
+
+  // ── HABIT ANTI-CHEAT LOGIC ──
   const toggleHabit = (id: string) => {
     const today = todayStr();
     setHabits(prev => prev.map(h => {
       if (h.id !== id) return h;
       const isDone = h.completedDates.includes(today);
-      if (!isDone) {
-        const newDates = [...h.completedDates, today];
-        const newStreak = computeStreak(newDates);
-        grantXp(20);
-        grantGold(8);
-        damageBoss(10);
-        touchActivity();
-        setHero(prevHero => ({ ...prevHero, totalHabitsCompleted: prevHero.totalHabitsCompleted + 1 }));
-        notify(`Habit Logged: ${h.emoji} ${h.name} (+20 XP)`, '🔥', 'success');
-        return { ...h, completedDates: newDates, streak: newStreak, longestStreak: Math.max(h.longestStreak, newStreak) };
-      } else {
+      if (isDone) {
+        // Undo (no reward removal, but no re-reward on re-toggle)
         const newDates = h.completedDates.filter(d => d !== today);
         return { ...h, completedDates: newDates, streak: computeStreak(newDates) };
+      } else {
+        const newDates = [...h.completedDates, today];
+        const newStreak = computeStreak(newDates);
+        grantXp(20); grantGold(8);
+        damageBoss(10); touch();
+        setHero(hero => ({ ...hero, totalHabits: hero.totalHabits + 1 }));
+        notify(`🔥 ${h.emoji} ${h.name} +20 XP`, '🔥', 'success');
+        return { ...h, completedDates: newDates, streak: newStreak, longestStreak: Math.max(h.longestStreak, newStreak) };
       }
     }));
   };
 
-  // Focus Session Logger
-  const handleFocusFinish = (mins: number, label: string) => {
-    const s: FocusSession = { id: uid(), date: todayStr(), minutes: mins, label };
-    setFocusSessions(prev => [s, ...prev]);
-    const xp = Math.round(mins * 2);
-    const gold = Math.round(mins * 0.8);
-    grantXp(xp);
-    grantGold(gold);
-    damageBoss(Math.round(mins * 0.6));
-    touchActivity();
-    setHero(h => ({ ...h, totalFocusMinutes: h.totalFocusMinutes + mins }));
-    notify(`Focus Chamber logged: ${mins}m ${label} (+${xp} XP, +${gold} G)`, '⏱️', 'success');
-  };
+  const deleteHabit = (id: string) => setHabits(p => p.filter(h => h.id !== id));
 
-  // Daily Verse Component with Shuffle
-  const DailyVerseCard = () => {
-    const [verseIdx, setVerseIdx] = useState(() => {
-      const d = new Date();
-      return Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86400000) % BIBLE_VERSES.length;
-    });
-
-    const currentVerse = BIBLE_VERSES[verseIdx];
-
-    const shuffle = () => {
-      setVerseIdx(Math.floor(Math.random() * BIBLE_VERSES.length));
+  const addHabit = (name: string, emoji: string, color: string) => {
+    if (!name.trim()) return;
+    const h: Habit = {
+      id: uid(), name: name.trim(), emoji, color,
+      streak: 0, longestStreak: 0, completedDates: [], createdAt: todayStr(),
     };
-
-    return (
-      <div className="glass-card p-5 border border-white/10 relative overflow-hidden bg-white/[0.02]">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Quote size={20} className="flex-shrink-0 mt-0.5 text-white/40" style={{ color: accent }} />
-            <div>
-              <p className="text-sm md:text-base text-gray-200 italic font-serif leading-relaxed">
-                "{currentVerse.text}"
-              </p>
-              <p className="text-xs font-semibold mt-2 tracking-wide uppercase" style={{ color: accent }}>
-                — {currentVerse.ref}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={shuffle}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all flex items-center gap-1.5 text-xs flex-shrink-0"
-            title="Random Verse"
-          >
-            <Shuffle size={14} /> <span className="hidden sm:inline">Shuffle</span>
-          </button>
-        </div>
-      </div>
-    );
+    setHabits(p => [h, ...p]);
+    notify(`New habit forged!`, '🔥', 'info');
   };
 
-  // Avatar icon rendering
-  const getAvatarDisplay = () => {
-    const item = SHOP_CATALOG.find(i => i.id === equipped.avatar);
-    return item ? item.icon : '🦊';
+  const focusFinish = (mins: number, label: string) => {
+    setSessions(p => [{ id: uid(), date: todayStr(), minutes: mins, label }, ...p]);
+    const xp = mins * 2; const gold = Math.round(mins * 0.8);
+    grantXp(xp); grantGold(gold);
+    damageBoss(Math.round(mins * 0.6));
+    touch();
+    setHero(h => ({ ...h, totalFocus: h.totalFocus + mins }));
+    notify(`⏱️ ${mins}m focus +${xp} XP`, '⏱️', 'success');
   };
 
-  const getFrameStyles = (): React.CSSProperties => {
-    switch (equipped.frame) {
-      case 'frame-bronze': return { border: '3px solid #CD7F32', boxShadow: '0 0 12px #CD7F3244' };
-      case 'frame-silver': return { border: '3px solid #E5E7EB', boxShadow: '0 0 12px #E5E7EB44' };
-      case 'frame-gold': return { border: '3px solid #FBBF24', boxShadow: '0 0 16px #FBBF2466' };
-      case 'frame-diamond': return { border: '3px solid #38BDF8', boxShadow: '0 0 20px #38BDF877' };
-      case 'frame-fire': return { border: '3px solid #EF4444', boxShadow: '0 0 18px #EF444466' };
-      default: return { border: '3px solid rgba(255,255,255,0.1)' };
-    }
+  const buyItem = (item: ShopItem) => {
+    if (inventory.includes(item.id)) return;
+    if (hero.gold < item.cost) { notify('Not enough gold!', '⚠️', 'info'); return; }
+    setHero(h => ({ ...h, gold: h.gold - item.cost }));
+    setInventory(i => [...i, item.id]);
+    notify(`🛒 Unlocked: ${item.name}`, '🛒', 'gold');
+  };
+
+  const equipItem = (item: ShopItem) => {
+    setEquipped(e => ({ ...e, [item.type]: item.id }));
+    notify(`⚡ Equipped: ${item.name}`, '⚡', 'info');
+  };
+
+  const avatarIcon = SHOP.find(i => i.id === equipped.avatar)?.icon || '🦊';
+  const titleText = SHOP.find(i => i.id === equipped.title)?.value || 'Novice';
+
+  const frameStyle = (): React.CSSProperties => {
+    const fv = SHOP.find(i => i.id === equipped.frame)?.value;
+    const styles: Record<string, React.CSSProperties> = {
+      none: { border: '3px solid rgba(255,255,255,0.1)' },
+      bronze: { border: '3px solid #CD7F32', boxShadow: '0 0 12px #CD7F3266' },
+      silver: { border: '3px solid #E5E7EB', boxShadow: '0 0 12px #E5E7EB66' },
+      emerald: { border: '3px solid #10B981', boxShadow: '0 0 14px #10B98166' },
+      gold: { border: '3px solid #FBBF24', boxShadow: '0 0 16px #FBBF2477' },
+      fire: { border: '3px solid #EF4444', boxShadow: '0 0 18px #EF444477' },
+      ice: { border: '3px solid #38BDF8', boxShadow: '0 0 16px #38BDF877' },
+      diamond: { border: '3px solid #A78BFA', boxShadow: '0 0 20px #A78BFA88' },
+      cosmic: { border: '3px solid #EC4899', boxShadow: '0 0 22px #EC489988' },
+      rainbow: { border: '3px solid transparent', backgroundImage: 'linear-gradient(#0a0716,#0a0716), linear-gradient(45deg, #F43F5E, #FBBF24, #10B981, #06B6D4, #8B5CF6)', backgroundOrigin: 'border-box', backgroundClip: 'padding-box, border-box' },
+    };
+    return styles[fv || 'none'];
   };
 
   return (
-    <div className="min-h-screen text-gray-100 flex flex-col md:flex-row bg-[#08060F] font-sans selection:bg-purple-500 selection:text-white">
-      
-      {/* Toast Notification Container */}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm pointer-events-none">
+    <div className="min-h-screen text-gray-100 flex flex-col md:flex-row font-sans"
+      style={{ background: '#08060F', backgroundImage: `radial-gradient(circle at 20% 10%, ${accent}12 0%, transparent 50%), radial-gradient(circle at 80% 90%, ${accent}08 0%, transparent 50%)` }}>
+
+      {/* TOASTS */}
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-xs">
         <AnimatePresence>
-          {notifications.slice(0, 3).map(n => (
-            <motion.div
-              key={n.id}
-              initial={{ opacity: 0, y: -20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="px-4 py-3 rounded-xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 pointer-events-auto"
-              style={{
-                background: 'rgba(15, 12, 28, 0.95)',
-                borderColor: `${accent}40`,
-                boxShadow: `0 8px 30px ${accent}25`
-              }}
-            >
-              <span className="text-xl">{n.icon}</span>
-              <p className="text-xs font-medium text-white">{n.message}</p>
+          {toasts.map(t => (
+            <motion.div key={t.id} initial={{ opacity: 0, x: 30, scale: 0.95 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: 30 }}
+              className="px-4 py-3 rounded-2xl backdrop-blur-xl border flex items-center gap-3 shadow-2xl"
+              style={{ background: 'rgba(15,12,28,0.95)', borderColor: `${accent}44`, boxShadow: `0 8px 32px ${accent}22` }}>
+              <span className="text-xl">{t.icon}</span>
+              <p className="text-xs font-medium text-white leading-tight">{t.message}</p>
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
 
-      {/* DESKTOP SIDEBAR */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-white/5 bg-[#0b0816]/80 backdrop-blur-xl p-5 justify-between">
+      {/* SIDEBAR (Desktop) */}
+      <aside className="hidden md:flex flex-col w-60 border-r border-white/5 p-4 justify-between backdrop-blur-xl" style={{ background: 'rgba(11,8,22,0.5)' }}>
         <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xl" style={{ background: `${accent}25`, color: accent }}>
-              ⚒
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center relative"
+              style={{ background: `linear-gradient(135deg, ${accent}, ${accent}66)`, boxShadow: `0 4px 20px ${accent}66` }}>
+              <Sword size={22} className="text-white" strokeWidth={2.5} />
+              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-yellow-400 border-2 border-[#08060F]" />
             </div>
             <div>
-              <h1 className="font-extrabold text-sm tracking-wider font-mono" style={{ color: accent }}>TASK FORGE</h1>
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest font-mono">Productivity RPG</p>
+              <h1 className="font-black text-sm tracking-wider" style={{ color: accent }}>TASK FORGE</h1>
+              <p className="text-[9px] text-gray-500 uppercase tracking-widest">Productivity RPG</p>
             </div>
           </div>
-
           <nav className="space-y-1">
             {[
-              { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-              { id: 'habits', label: 'Habit Forge', icon: Repeat },
+              { id: 'dash', label: 'Dashboard', icon: LayoutDashboard },
+              { id: 'habits', label: 'Habit Forge', icon: Flame },
               { id: 'todos', label: 'Quest Log', icon: ListTodo },
               { id: 'focus', label: 'Focus Chamber', icon: Timer },
               { id: 'loot', label: 'Loot Locker', icon: ShoppingBag },
-            ].map(item => {
-              const active = activeTab === item.id;
-              const Icon = item.icon;
+            ].map(i => {
+              const active = tab === i.id;
+              const Ic = i.icon;
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as typeof activeTab)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
-                    active ? 'text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]'
-                  }`}
-                  style={active ? { background: `${accent}20`, color: accent, border: `1px solid ${accent}30` } : {}}
-                >
-                  <Icon size={18} />
-                  <span>{item.label}</span>
+                <button key={i.id} onClick={() => setTab(i.id as any)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]'}`}
+                  style={active ? { background: `${accent}20`, color: accent, border: `1px solid ${accent}40` } : {}}>
+                  <Ic size={17} />
+                  <span>{i.label}</span>
                 </button>
               );
             })}
           </nav>
         </div>
-
-        {/* Sidebar Footer */}
-        <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 text-center">
-          <div className="text-xs text-yellow-400 font-bold flex items-center justify-center gap-1.5 mb-1">
-            <Coins size={14} /> {hero.gold} Gold
+        <div className="p-3 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center justify-between text-xs mb-2">
+            <span className="text-gray-400">Gold</span>
+            <span className="font-black text-yellow-400 flex items-center gap-1"><Coins size={13} /> {hero.gold}</span>
           </div>
-          <p className="text-[10px] text-gray-500 font-mono">v1.0 Production Build</p>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Streak</span>
+            <span className="font-black text-orange-400 flex items-center gap-1"><Flame size={13} /> {hero.streakDays}d</span>
+          </div>
         </div>
       </aside>
 
-      {/* MAIN CONTENT REGION */}
-      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full pb-24 md:pb-8 overflow-y-auto">
-
-        {/* 1. DASHBOARD VIEW */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide font-mono" style={{ color: accent }}>
-                  COMMAND CENTER
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">Character status & active campaigns</p>
-              </div>
-              <button
-                onClick={() => setShowTutorial(true)}
-                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 text-xs flex items-center gap-1.5 transition-all"
-              >
-                <BookOpen size={14} /> Tutorial
-              </button>
-            </div>
-
-            {/* Daily Verse Banner */}
-            <DailyVerseCard />
-
-            {/* Top Grid: Hero Profile + Daily Boss + Progress */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Hero Status Card */}
-              <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/[0.02] flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl mb-3 overflow-hidden bg-white/5" style={getFrameStyles()}>
-                  {hero.profilePicture ? (
-                    <img src={hero.profilePicture} alt="Hero" className="w-full h-full object-cover" />
-                  ) : (
-                    <span>{getAvatarDisplay()}</span>
-                  )}
-                </div>
-                <h3 className="font-bold text-lg text-white">{hero.name}</h3>
-                <span className="text-xs text-gray-400 uppercase tracking-widest font-mono mb-4">
-                  {equipped.title.replace('title-', '')}
-                </span>
-
-                {/* Level & XP Meter */}
-                <div className="w-full space-y-1.5 mb-5">
-                  <div className="flex justify-between text-xs font-mono">
-                    <span className="text-purple-400 font-bold">Level {hero.level}</span>
-                    <span className="text-gray-400">{hero.xp} / {xpForLevel(hero.level)} XP</span>
-                  </div>
-                  <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${Math.min(100, (hero.xp / xpForLevel(hero.level)) * 100)}%`,
-                        background: `linear-gradient(90deg, ${accent}, ${accent}CC)`
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Quick stats grid */}
-                <div className="grid grid-cols-2 gap-2 w-full text-xs">
-                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-                    <div className="font-bold text-yellow-400 flex items-center justify-center gap-1">
-                      <Coins size={13} /> {hero.gold}
-                    </div>
-                    <span className="text-[10px] text-gray-500 uppercase">Treasury</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-                    <div className="font-bold text-orange-400 flex items-center justify-center gap-1">
-                      <Flame size={13} /> {hero.streakDays}d
-                    </div>
-                    <span className="text-[10px] text-gray-500 uppercase">Active Streak</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Daily Boss Card */}
-              <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/[0.02] flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold font-mono text-red-400 flex items-center gap-1.5 uppercase">
-                      <Sword size={14} /> Boss Encounter
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-mono">
-                      Level {boss.level}
-                    </span>
-                  </div>
-
-                  <div className="text-center my-3">
-                    <div className="text-5xl mb-2 filter drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-bounce">
-                      {boss.emoji}
-                    </div>
-                    <h4 className="font-extrabold text-base text-white">{boss.name}</h4>
-                    <p className="text-[10px] text-gray-400 font-mono">Defeated: {boss.defeatCount} times</p>
-                  </div>
-
-                  {/* HP Bar */}
-                  <div className="space-y-1 mb-4">
-                    <div className="flex justify-between text-xs font-mono text-gray-400">
-                      <span className="flex items-center gap-1 text-red-400"><Heart size={12} /> HP</span>
-                      <span>{boss.hp} / {boss.maxHp}</span>
-                    </div>
-                    <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                      <div
-                        className="h-full bg-gradient-to-r from-red-600 to-rose-400 transition-all duration-300"
-                        style={{ width: `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleQuickAttack}
-                  disabled={Date.now() - lastAttackAt < QUICK_ATTACK_COOLDOWN_MS}
-                  className="w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{
-                    background: Date.now() - lastAttackAt >= QUICK_ATTACK_COOLDOWN_MS ? `${accent}25` : 'rgba(255,255,255,0.03)',
-                    color: Date.now() - lastAttackAt >= QUICK_ATTACK_COOLDOWN_MS ? accent : '#777',
-                    border: `1px solid ${Date.now() - lastAttackAt >= QUICK_ATTACK_COOLDOWN_MS ? accent + '40' : 'transparent'}`
-                  }}
-                >
-                  <Zap size={14} />
-                  {Date.now() - lastAttackAt >= QUICK_ATTACK_COOLDOWN_MS ? 'Perform Quick Strike' : 'Cooldown Active'}
-                </button>
-              </div>
-
-              {/* Progress Summary Card */}
-              <div className="glass-card p-6 border border-white/10 rounded-2xl bg-white/[0.02] flex flex-col justify-between">
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold font-mono text-gray-300 uppercase flex items-center gap-1.5">
-                    <TrendingUp size={14} style={{ color: accent }} /> Today's Campaign
-                  </h4>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-xs p-2 rounded-xl bg-white/[0.02]">
-                      <span className="text-gray-400 flex items-center gap-2"><Target size={14} /> Quests Cleared</span>
-                      <span className="font-bold text-white">{todos.filter(t => t.completedAt === todayStr()).length}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs p-2 rounded-xl bg-white/[0.02]">
-                      <span className="text-gray-400 flex items-center gap-2"><Flame size={14} /> Habits Done</span>
-                      <span className="font-bold text-white">{habits.filter(h => h.completedDates.includes(todayStr())).length} / {habits.length}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs p-2 rounded-xl bg-white/[0.02]">
-                      <span className="text-gray-400 flex items-center gap-2"><Clock size={14} /> Focus Minutes</span>
-                      <span className="font-bold text-white">{focusSessions.filter(s => s.date === todayStr()).reduce((a, b) => a + b.minutes, 0)}m</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-white/5">
-                  <div className="flex justify-between text-[11px] text-gray-500 font-mono">
-                    <span>Lifetime Tasks: {hero.totalTasksCompleted}</span>
-                    <span>Bosses Slain: {hero.totalBossesDefeated}</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Quick Navigation Shortcuts */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { tab: 'todos', label: 'Quest Log', desc: `${todos.filter(t => !t.completed).length} active`, icon: Target },
-                { tab: 'habits', label: 'Habit Forge', desc: `${habits.length} tracked`, icon: Flame },
-                { tab: 'focus', label: 'Focus Chamber', desc: 'Audio & Timer', icon: Timer },
-                { tab: 'loot', label: 'Loot Locker', desc: `${inventory.length} unlocked`, icon: ShoppingBag },
-              ].map(card => {
-                const Icon = card.icon;
-                return (
-                  <button
-                    key={card.tab}
-                    onClick={() => setActiveTab(card.tab as typeof activeTab)}
-                    className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/15 text-left transition-all group"
-                  >
-                    <Icon size={20} className="mb-2 transition-transform group-hover:scale-110" style={{ color: accent }} />
-                    <div className="font-bold text-sm text-white">{card.label}</div>
-                    <div className="text-xs text-gray-500">{card.desc}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 2. HABITS VIEW */}
-        {activeTab === 'habits' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide font-mono" style={{ color: accent }}>
-                  HABIT FORGE
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">Build discipline & maintain continuous streaks</p>
-              </div>
-            </div>
-
-            <DailyVerseCard />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {habits.map(habit => {
-                const isDone = habit.completedDates.includes(todayStr());
-                const hAccent = themeAccent(habit.color);
-
-                return (
-                  <div key={habit.id} className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => toggleHabit(habit.id)}
-                        className="w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all"
-                        style={{
-                          background: isDone ? `${hAccent}30` : 'rgba(255,255,255,0.03)',
-                          border: `2px solid ${isDone ? hAccent : 'rgba(255,255,255,0.1)'}`
-                        }}
-                      >
-                        {isDone ? <Check size={20} style={{ color: hAccent }} /> : habit.emoji}
-                      </button>
-                      <div>
-                        <h4 className={`text-sm font-bold ${isDone ? 'line-through text-gray-500' : 'text-white'}`}>
-                          {habit.name}
-                        </h4>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 font-mono">
-                          <span className="flex items-center gap-0.5 text-orange-400"><Flame size={12} /> {habit.streak}d streak</span>
-                          <span>· Best: {habit.longestStreak}d</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 7-day mini heatmap */}
-                    <div className="flex gap-1">
-                      {Array.from({ length: 7 }).map((_, idx) => {
-                        const d = new Date();
-                        d.setDate(d.getDate() - (6 - idx));
-                        const ds = todayStr(d);
-                        const done = habit.completedDates.includes(ds);
-                        return (
-                          <div
-                            key={idx}
-                            className="w-2.5 h-6 rounded-sm transition-all"
-                            style={{ background: done ? hAccent : 'rgba(255,255,255,0.05)' }}
-                            title={ds}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 3. QUEST LOG (TODOS) VIEW */}
-        {activeTab === 'todos' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide font-mono" style={{ color: accent }}>
-                  QUEST LOG
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">Eisenhower matrix task matrix & XP missions</p>
-              </div>
-            </div>
-
-            <DailyVerseCard />
-
-            {/* Task Quadrants */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { title: 'Do First (Urgent & Important)', u: true, i: true, color: '#EF4444' },
-                { title: 'Schedule (Important)', u: false, i: true, color: '#3B82F6' },
-                { title: 'Delegate (Urgent)', u: true, i: false, color: '#F59E0B' },
-                { title: 'Backlog', u: false, i: false, color: '#6B7280' },
-              ].map(quadrant => {
-                const items = todos.filter(t => t.urgent === quadrant.u && t.important === quadrant.i);
-                return (
-                  <div key={quadrant.title} className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col justify-between min-h-[160px]">
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: quadrant.color }} />
-                        <h4 className="text-xs font-bold font-mono text-gray-300 uppercase">{quadrant.title}</h4>
-                      </div>
-
-                      <div className="space-y-2">
-                        {items.length === 0 ? (
-                          <p className="text-xs text-gray-600 italic py-2">No active missions in this sector</p>
-                        ) : (
-                          items.map(todo => (
-                            <div
-                              key={todo.id}
-                              onClick={() => toggleTodo(todo.id)}
-                              className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                                todo.completed ? 'bg-white/[0.01] border-white/5 opacity-50' : 'bg-white/[0.03] border-white/10 hover:border-white/20'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <div className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${
-                                  todo.completed ? 'bg-green-500 text-black font-bold' : 'border border-white/20'
-                                }`}>
-                                  {todo.completed && '✓'}
-                                </div>
-                                <span className={`text-xs ${todo.completed ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-                                  {todo.title}
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-mono text-gray-500">
-                                {todo.important ? '+30 XP' : '+20 XP'}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 4. FOCUS CHAMBER (TIMER + YOUTUBE AURA BEATS + SYNTH) */}
-        {activeTab === 'focus' && (
-          <FocusChamberView
-            accent={accent}
-            focusSessions={focusSessions}
-            onSessionComplete={handleFocusFinish}
-          />
-        )}
-
-        {/* 5. LOOT LOCKER (CUSTOMIZATION SHOP) */}
-        {activeTab === 'loot' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide font-mono" style={{ color: accent }}>
-                  LOOT LOCKER
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">Customize cosmetic titles, borders, avatars and theme aura</p>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs font-bold font-mono">
-                <Coins size={14} /> {hero.gold} Gold Available
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {SHOP_CATALOG.map(item => {
-                const owned = inventory.includes(item.id);
-                const isEquipped = (
-                  (item.type === 'title' && equipped.title === item.id) ||
-                  (item.type === 'avatar' && equipped.avatar === item.id) ||
-                  (item.type === 'frame' && equipped.frame === item.id) ||
-                  (item.type === 'theme' && equipped.theme === item.id)
-                );
-                const rc = rarityColor(item.rarity);
-
-                return (
-                  <div key={item.id} className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col justify-between relative overflow-hidden">
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="text-3xl">{item.icon}</div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white">{item.name}</h4>
-                          <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded font-mono" style={{ background: `${rc}20`, color: rc }}>
-                            {item.rarity}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">{item.description}</p>
-                      </div>
-                    </div>
-
-                    {isEquipped ? (
-                      <div className="py-2 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold text-center flex items-center justify-center gap-1.5">
-                        <Check size={14} /> Equipped
-                      </div>
-                    ) : owned ? (
-                      <button
-                        onClick={() => {
-                          setEquipped(e => ({ ...e, [item.type]: item.id }));
-                          notify(`Equipped: ${item.name}`, '⚡', 'info');
-                        }}
-                        className="w-full py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90"
-                        style={{ background: `${accent}25`, color: accent, border: `1px solid ${accent}40` }}
-                      >
-                        Equip Item
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          if (hero.gold < item.cost) {
-                            notify("Not enough gold!", "⚠️", "info");
-                            return;
-                          }
-                          setHero(h => ({ ...h, gold: h.gold - item.cost }));
-                          setInventory(inv => [...inv, item.id]);
-                          notify(`Unlocked: ${item.name}!`, '🛒', 'gold');
-                        }}
-                        disabled={hero.gold < item.cost}
-                        className="w-full py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{
-                          background: hero.gold >= item.cost ? accent : 'rgba(255,255,255,0.03)',
-                          color: hero.gold >= item.cost ? '#000' : '#666'
-                        }}
-                      >
-                        {hero.gold >= item.cost ? (
-                          <><Coins size={13} /> Buy · {item.cost} Gold</>
-                        ) : (
-                          <><Lock size={13} /> {item.cost} Gold</>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
+      {/* MAIN */}
+      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full pb-24 md:pb-8">
+        {tab === 'dash' && <DashboardView {...{ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, notify, setShowTut }} />}
+        {tab === 'habits' && <HabitsView {...{ habits, addHabit, toggleHabit, deleteHabit, accent }} />}
+        {tab === 'todos' && <TodosView {...{ todos, addTask, completeTask, uncompleteTask, deleteTask, accent }} />}
+        {tab === 'focus' && <FocusView {...{ sessions, focusFinish, accent }} />}
+        {tab === 'loot' && <LootView {...{ hero, inventory, equipped, buyItem, equipItem, accent }} />}
       </main>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#090714]/95 backdrop-blur-xl border-t border-white/5 flex items-center justify-around py-2 px-1">
+      {/* MOBILE BOTTOM NAV */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t border-white/5 flex items-center justify-around py-2 px-1" style={{ background: 'rgba(9,7,20,0.95)' }}>
         {[
-          { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
-          { id: 'habits', label: 'Habits', icon: Repeat },
+          { id: 'dash', label: 'Home', icon: LayoutDashboard },
+          { id: 'habits', label: 'Habits', icon: Flame },
           { id: 'todos', label: 'Quests', icon: ListTodo },
           { id: 'focus', label: 'Focus', icon: Timer },
           { id: 'loot', label: 'Loot', icon: ShoppingBag },
-        ].map(item => {
-          const active = activeTab === item.id;
-          const Icon = item.icon;
+        ].map(i => {
+          const active = tab === i.id;
+          const Ic = i.icon;
           return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as typeof activeTab)}
-              className={`flex flex-col items-center gap-1 px-3 py-1 text-[10px] font-medium transition-all ${
-                active ? 'text-white' : 'text-gray-500'
-              }`}
-              style={active ? { color: accent } : {}}
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
+            <button key={i.id} onClick={() => setTab(i.id as any)}
+              className={`flex flex-col items-center gap-1 px-3 py-1 text-[10px] transition-all ${active ? 'text-white' : 'text-gray-500'}`}
+              style={active ? { color: accent } : {}}>
+              <Ic size={18} />
+              <span>{i.label}</span>
             </button>
           );
         })}
       </nav>
 
-      {/* ONBOARDING MODAL */}
-      {showTutorial && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="glass-card max-w-md w-full p-6 border border-white/10 rounded-2xl bg-[#0f0c1d] text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-3xl" style={{ background: `${accent}20`, color: accent }}>
-              ⚒
+      {/* TUTORIAL */}
+      {showTut && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur p-4">
+          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="max-w-md w-full p-6 rounded-3xl border border-white/10 text-center space-y-4" style={{ background: '#0f0c1d' }}>
+            <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center" style={{ background: `${accent}25` }}>
+              <Sword size={32} style={{ color: accent }} />
             </div>
-            <h3 className="text-xl font-bold font-mono" style={{ color: accent }}>WELCOME TO TASK FORGE</h3>
+            <h3 className="text-xl font-black" style={{ color: accent }}>WELCOME TO TASK FORGE</h3>
             <p className="text-xs text-gray-300 leading-relaxed">
-              Task Forge turns your real-world tasks, habits, and deep focus sessions into character progression. Complete quests to gain XP, unlock themes, and defeat daily bosses!
+              Turn your real tasks, habits & focus sessions into XP, Gold, and epic loot. Complete quests to slay daily bosses & unlock legendary gear!
             </p>
-            <button
-              onClick={() => setShowTutorial(false)}
-              className="w-full py-3 rounded-xl text-xs font-bold text-black"
-              style={{ background: accent }}
-            >
+            <button onClick={() => setShowTut(false)} className="w-full py-3 rounded-xl text-xs font-black text-black" style={{ background: accent }}>
               Enter The Forge
             </button>
-          </div>
+          </motion.div>
         </div>
       )}
-
     </div>
   );
 }
 
-// ==========================================
-// 5. FOCUS CHAMBER COMPONENT WITH AUDIO & YOUTUBE
-// ==========================================
+// ============================================
+// DASHBOARD
+// ============================================
+function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, notify, setShowTut }: any) {
+  const [editName, setEditName] = useState(false);
+  const [nameVal, setNameVal] = useState(hero.name);
+  const [cd, setCd] = useState('');
+  const [verseIdx, setVerseIdx] = useState(() => {
+    const d = new Date();
+    return Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86400000) % VERSES.length;
+  });
 
-function FocusChamberView({
-  accent,
-  focusSessions,
-  onSessionComplete
-}: {
-  accent: string;
-  focusSessions: FocusSession[];
-  onSessionComplete: (mins: number, label: string) => void;
-}) {
-  const [selectedPreset, setSelectedPreset] = useState(1);
-  const [totalSeconds, setTotalSeconds] = useState(FOCUS_PRESETS[1].minutes * 60);
-  const [remainingSeconds, setRemainingSeconds] = useState(FOCUS_PRESETS[1].minutes * 60);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const r = COOLDOWN - (Date.now() - lastAtk);
+      if (r <= 0) setCd('');
+      else setCd(`${Math.floor(r / 60000)}m ${Math.floor((r % 60000) / 1000)}s`);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [lastAtk]);
 
-  // YouTube Audio Controller State
-  const [ytActiveStream, setYtActiveStream] = useState(YT_PRESET_STREAMS[0].id);
-  const [ytCustomUrl, setYtCustomUrl] = useState('');
-  const [ytIsPlaying, setYtIsPlaying] = useState(false);
-  const [streamsList, setStreamsList] = useState(YT_PRESET_STREAMS);
+  const canAtk = Date.now() - lastAtk >= COOLDOWN;
+  const today = todayStr();
+  const todayTasks = todos.filter((t: Todo) => t.completedAt === today).length;
+  const todayHabits = habits.filter((h: Habit) => h.completedDates.includes(today)).length;
+  const todayFocus = sessions.filter((s: FocusSession) => s.date === today).reduce((a: number, b: FocusSession) => a + b.minutes, 0);
 
-  // Procedural Synth State
-  const [activeSynth, setActiveSynth] = useState<Set<SoundType>>(new Set());
+  const handlePic = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f || f.size > 2 * 1024 * 1024) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = 200; c.height = 200;
+        const ctx = c.getContext('2d')!;
+        const s = Math.max(200 / img.width, 200 / img.height);
+        ctx.drawImage(img, (200 - img.width * s) / 2, (200 - img.height * s) / 2, img.width * s, img.height * s);
+        setHero((h: Hero) => ({ ...h, profilePic: c.toDataURL('image/jpeg', 0.8) }));
+      };
+      img.src = r.result as string;
+    };
+    r.readAsDataURL(f);
+  };
 
-  // Timer Tick Logic
+  const v = VERSES[verseIdx];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>COMMAND CENTER</h2>
+          <p className="text-xs text-gray-400">Hero Status & Active Campaigns</p>
+        </div>
+        <button onClick={() => setShowTut(true)} className="px-3 py-1.5 rounded-xl bg-white/5 text-gray-400 text-xs flex items-center gap-1.5">
+          <BookOpen size={13} /> Tutorial
+        </button>
+      </div>
+
+      {/* Verse */}
+      <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+        <div className="flex items-start gap-3">
+          <Quote size={18} style={{ color: accent, opacity: 0.6 }} className="flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-gray-200 italic leading-relaxed">"{v.text}"</p>
+            <p className="text-xs mt-2 font-bold uppercase tracking-wider" style={{ color: accent }}>— {v.ref}</p>
+          </div>
+          <button onClick={() => setVerseIdx(Math.floor(Math.random() * VERSES.length))} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all">
+            <Shuffle size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* HERO */}
+        <div className="p-6 rounded-3xl border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <label className="relative mx-auto w-24 h-24 mb-3 cursor-pointer block">
+            <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl overflow-hidden" style={frameStyle()}>
+              {hero.profilePic ? <img src={hero.profilePic} className="w-full h-full object-cover" alt="Hero" /> : avatarIcon}
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={handlePic} />
+          </label>
+          {editName ? (
+            <input value={nameVal} onChange={e => setNameVal(e.target.value)} onBlur={() => { setHero((h: Hero) => ({ ...h, name: nameVal.trim() || h.name })); setEditName(false); }} autoFocus
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-1 text-center text-white font-bold w-full focus:outline-none focus:border-white/30" maxLength={24} />
+          ) : (
+            <h3 onClick={() => setEditName(true)} className="font-black text-lg cursor-pointer hover:opacity-80 flex items-center justify-center gap-1">
+              {hero.name} <Edit3 size={12} className="text-gray-500" />
+            </h3>
+          )}
+          <p className="text-xs text-gray-400 uppercase tracking-widest mb-4">{titleText}</p>
+
+          <div className="space-y-1.5 mb-4">
+            <div className="flex justify-between text-xs">
+              <span className="font-bold" style={{ color: accent }}>Level {hero.level}</span>
+              <span className="text-gray-400">{hero.xp} / {xpForLevel(hero.level)} XP</span>
+            </div>
+            <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full transition-all duration-500 rounded-full" style={{ width: `${(hero.xp / xpForLevel(hero.level)) * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent}AA)` }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="p-2.5 rounded-xl bg-white/[0.03]">
+              <div className="text-yellow-400 font-black flex items-center justify-center gap-1"><Coins size={13} /> {hero.gold}</div>
+              <div className="text-[10px] text-gray-500 uppercase">Gold</div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/[0.03]">
+              <div className="text-orange-400 font-black flex items-center justify-center gap-1"><Flame size={13} /> {hero.streakDays}d</div>
+              <div className="text-[10px] text-gray-500 uppercase">Streak</div>
+            </div>
+          </div>
+        </div>
+
+        {/* BOSS */}
+        <div className="p-6 rounded-3xl border border-white/10 flex flex-col justify-between" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-black text-red-400 flex items-center gap-1.5 uppercase"><Sword size={13} /> Boss</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Lv {boss.level}</span>
+            </div>
+            <div className="text-center my-2">
+              <motion.div className="text-5xl mb-1" animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}>{boss.emoji}</motion.div>
+              <h4 className="font-black text-base">{boss.name}</h4>
+              <p className="text-[10px] text-gray-400">Defeated: {boss.defeatCount}×</p>
+            </div>
+            <div className="space-y-1 mb-3">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span className="flex items-center gap-1 text-red-400"><Heart size={12} /> HP</span>
+                <span>{boss.hp} / {boss.maxHp}</span>
+              </div>
+              <div className="h-3 bg-white/5 rounded-full overflow-hidden">
+                <motion.div className="h-full bg-gradient-to-r from-red-600 to-rose-400" animate={{ width: `${(boss.hp / boss.maxHp) * 100}%` }} transition={{ duration: 0.4 }} />
+              </div>
+            </div>
+          </div>
+          <button onClick={quickAtk} disabled={!canAtk} className="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            style={{ background: canAtk ? `${accent}25` : 'rgba(255,255,255,0.03)', color: canAtk ? accent : '#666', border: `1px solid ${canAtk ? accent + '40' : 'transparent'}` }}>
+            <Zap size={14} /> {canAtk ? 'Quick Attack' : cd}
+          </button>
+        </div>
+
+        {/* TODAY */}
+        <div className="p-6 rounded-3xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <h4 className="text-xs font-black uppercase text-gray-300 mb-4 flex items-center gap-2"><TrendingUp size={14} style={{ color: accent }} /> Today's Campaign</h4>
+          <div className="space-y-2">
+            {[
+              { icon: Target, label: 'Quests', val: todayTasks },
+              { icon: Flame, label: 'Habits', val: `${todayHabits}/${habits.length}` },
+              { icon: Clock, label: 'Focus min', val: todayFocus },
+              { icon: Sword, label: 'Bosses total', val: hero.totalBosses },
+            ].map(s => {
+              const Ic = s.icon;
+              return (
+                <div key={s.label} className="flex justify-between items-center text-xs p-2 rounded-xl bg-white/[0.02]">
+                  <span className="text-gray-400 flex items-center gap-2"><Ic size={13} /> {s.label}</span>
+                  <span className="font-black text-white">{s.val}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// HABITS
+// ============================================
+function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any) {
+  const [show, setShow] = useState(false);
+  const [name, setName] = useState('');
+  const [emoji, setEmoji] = useState('🎯');
+  const [color, setColor] = useState('violet');
+  const [delId, setDelId] = useState<string | null>(null);
+
+  const colors = ['violet', 'cyan', 'emerald', 'rose', 'amber', 'sky', 'lime', 'fuchsia'];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>HABIT FORGE</h2>
+          <p className="text-xs text-gray-400">Build unbreakable daily streaks</p>
+        </div>
+        <button onClick={() => setShow(!show)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+          style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+          {show ? <X size={14} /> : <Plus size={14} />} {show ? 'Cancel' : 'New Habit'}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {show && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            <div className="p-5 rounded-2xl border border-white/10 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <div>
+                <label className="text-xs text-gray-400 uppercase font-bold block mb-1.5">Habit Name</label>
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Drink 2L Water"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30" maxLength={50} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 uppercase font-bold block mb-2">Icon</label>
+                <div className="flex flex-wrap gap-2">
+                  {EMOJIS.map(e => (
+                    <button key={e} onClick={() => setEmoji(e)} className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${emoji === e ? 'ring-2' : 'bg-white/[0.03] hover:bg-white/[0.06]'}`}
+                      style={emoji === e ? { background: `${accent}20`, boxShadow: `0 0 0 2px ${accent}` } : {}}>{e}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 uppercase font-bold block mb-2">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {colors.map(c => (
+                    <button key={c} onClick={() => setColor(c)} className={`w-8 h-8 rounded-full transition-all ${color === c ? 'ring-2 ring-white/60 scale-110' : ''}`} style={{ background: themeAccent(c) }} />
+                  ))}
+                </div>
+              </div>
+              <button onClick={() => { addHabit(name, emoji, color); setName(''); setEmoji('🎯'); setColor('violet'); setShow(false); }} disabled={!name.trim()}
+                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>
+                Create Habit
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {habits.length === 0 ? (
+        <div className="p-12 rounded-2xl border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="text-5xl mb-3">🔥</div>
+          <p className="text-gray-400">Forge your first habit above!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {habits.map((h: Habit) => {
+            const done = h.completedDates.includes(todayStr());
+            const hAcc = themeAccent(h.color);
+            return (
+              <motion.div key={h.id} layout className="p-4 rounded-2xl border border-white/10 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                <button onClick={() => toggleHabit(h.id)} className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 transition-all"
+                  style={{ background: done ? `${hAcc}30` : 'rgba(255,255,255,0.03)', border: `2px solid ${done ? hAcc : 'rgba(255,255,255,0.1)'}` }}>
+                  {done ? <Check size={20} style={{ color: hAcc }} /> : h.emoji}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <h4 className={`text-sm font-bold ${done ? 'line-through text-gray-500' : ''}`}>{h.name}</h4>
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                    <span className="text-orange-400 flex items-center gap-0.5"><Flame size={10} /> {h.streak}d</span>
+                    <span>· Best {h.longestStreak}d</span>
+                  </div>
+                </div>
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+                    const ds = todayStr(d);
+                    return <div key={i} className="w-2 h-6 rounded-sm" style={{ background: h.completedDates.includes(ds) ? hAcc : 'rgba(255,255,255,0.05)' }} title={ds} />;
+                  })}
+                </div>
+                {delId === h.id ? (
+                  <div className="flex gap-1">
+                    <button onClick={() => { deleteHabit(h.id); setDelId(null); }} className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400">Yes</button>
+                    <button onClick={() => setDelId(null)} className="px-2 py-1 rounded text-xs bg-white/5 text-gray-400">No</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setDelId(h.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={14} /></button>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// TODOS
+// ============================================
+function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, accent }: any) {
+  const [show, setShow] = useState(false);
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [urgent, setUrgent] = useState(false);
+  const [important, setImportant] = useState(false);
+  const [delId, setDelId] = useState<string | null>(null);
+
+  const active = todos.filter((t: Todo) => !t.completed);
+  const done = todos.filter((t: Todo) => t.completed);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>QUEST LOG</h2>
+          <p className="text-xs text-gray-400">Add your own quests · Earn XP once per completion</p>
+        </div>
+        <button onClick={() => setShow(!show)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold"
+          style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+          {show ? <X size={14} /> : <Plus size={14} />} {show ? 'Cancel' : 'New Quest'}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {show && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            <div className="p-5 rounded-2xl border border-white/10 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" autoFocus
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30" maxLength={120} />
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 resize-none h-20" maxLength={300} />
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={urgent} onChange={e => setUrgent(e.target.checked)} className="w-4 h-4 accent-red-500" />
+                  <span className="text-xs text-red-400 flex items-center gap-1"><AlertTriangle size={12} /> Urgent</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={important} onChange={e => setImportant(e.target.checked)} className="w-4 h-4 accent-blue-500" />
+                  <span className="text-xs text-blue-400 flex items-center gap-1"><Star size={12} /> Important</span>
+                </label>
+              </div>
+              <button onClick={() => { addTask(title, notes, urgent, important); setTitle(''); setNotes(''); setUrgent(false); setImportant(false); setShow(false); }} disabled={!title.trim()}
+                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>
+                Add Quest
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {todos.length === 0 ? (
+        <div className="p-12 rounded-2xl border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="text-5xl mb-3">📜</div>
+          <p className="text-gray-400">Your quest log is empty. Add your first quest!</p>
+        </div>
+      ) : (
+        <>
+          <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h3 className="text-xs font-black uppercase text-gray-400 mb-3">Active ({active.length})</h3>
+            {active.length === 0 ? <p className="text-xs text-gray-500 italic">All done! 🎉</p> : (
+              <div className="space-y-2">
+                {active.map((t: Todo) => (
+                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
+                    <button onClick={() => completeTask(t.id)} className="w-6 h-6 rounded-lg border-2 border-white/20 hover:border-white/40 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">{t.title}</p>
+                      {t.notes && <p className="text-xs text-gray-500 truncate">{t.notes}</p>}
+                      <div className="flex gap-2 mt-1">
+                        {t.urgent && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">URGENT</span>}
+                        {t.important && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">IMPORTANT</span>}
+                        {t.rewardClaimed && <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">CLAIMED</span>}
+                      </div>
+                    </div>
+                    {delId === t.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => { deleteTask(t.id); setDelId(null); }} className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400">Yes</button>
+                        <button onClick={() => setDelId(null)} className="px-2 py-1 rounded text-xs bg-white/5 text-gray-400">No</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setDelId(t.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {done.length > 0 && (
+            <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <h3 className="text-xs font-black uppercase text-gray-400 mb-3">Completed ({done.length})</h3>
+              <div className="space-y-2">
+                {done.map((t: Todo) => (
+                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] opacity-50 group hover:opacity-80">
+                    <button onClick={() => uncompleteTask(t.id)} className="w-6 h-6 rounded-lg bg-green-500/30 border-2 border-green-500/50 flex items-center justify-center flex-shrink-0">
+                      <Check size={14} className="text-green-400" />
+                    </button>
+                    <p className="text-sm line-through flex-1">{t.title}</p>
+                    <button onClick={() => deleteTask(t.id)} className="text-gray-600 hover:text-red-400"><Trash2 size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// FOCUS CHAMBER
+// ============================================
+function FocusView({ sessions, focusFinish, accent }: any) {
+  const [preset, setPreset] = useState(1);
+  const [total, setTotal] = useState(FOCUS_PRESETS[1].minutes * 60);
+  const [rem, setRem] = useState(FOCUS_PRESETS[1].minutes * 60);
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const savedRef = useRef(false);
+
+  const [ytActive, setYtActive] = useState<string | null>(null);
+  const [ytCustom, setYtCustom] = useState('');
+  const [streams, setStreams] = useState(YT_STREAMS);
+
+  const [synth, setSynth] = useState<Set<SoundType>>(new Set());
+
   useEffect(() => {
     let iv: number | null = null;
-    if (isRunning && !isPaused) {
+    if (running && !paused) {
       iv = window.setInterval(() => {
-        setRemainingSeconds(prev => {
+        setRem(prev => {
           if (prev <= 1) {
-            onSessionComplete(FOCUS_PRESETS[selectedPreset].minutes, FOCUS_PRESETS[selectedPreset].label);
-            setIsRunning(false);
-            setIsPaused(false);
+            if (!savedRef.current) {
+              savedRef.current = true;
+              focusFinish(FOCUS_PRESETS[preset].minutes, FOCUS_PRESETS[preset].label);
+            }
+            setRunning(false); setPaused(false);
             return 0;
           }
           return prev - 1;
@@ -1372,263 +1104,246 @@ function FocusChamberView({
       }, 1000);
     }
     return () => { if (iv) clearInterval(iv); };
-  }, [isRunning, isPaused, selectedPreset, onSessionComplete]);
+  }, [running, paused, preset, focusFinish]);
 
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      ambientEngine.stopAll();
-    };
-  }, []);
+  useEffect(() => () => { engine.stopAll(); }, []);
 
-  const handleStart = () => {
-    if (remainingSeconds <= 0) {
-      setRemainingSeconds(FOCUS_PRESETS[selectedPreset].minutes * 60);
-    }
-    setIsRunning(true);
-    setIsPaused(false);
+  const start = () => {
+    if (rem <= 0) { setTotal(FOCUS_PRESETS[preset].minutes * 60); setRem(FOCUS_PRESETS[preset].minutes * 60); }
+    savedRef.current = false;
+    setRunning(true); setPaused(false);
+  };
+  const reset = () => { setRunning(false); setPaused(false); setRem(FOCUS_PRESETS[preset].minutes * 60); savedRef.current = false; };
+
+  const toggleSynth = (t: SoundType) => {
+    if (synth.has(t)) { engine.stop(t); setSynth(p => { const n = new Set(p); n.delete(t); return n; }); }
+    else { engine.start(t, 0.5); setSynth(p => new Set(p).add(t)); }
   };
 
-  const handleReset = () => {
-    setIsRunning(false);
-    setIsPaused(false);
-    setRemainingSeconds(FOCUS_PRESETS[selectedPreset].minutes * 60);
+  const addYt = () => {
+    let vid = ytCustom.trim();
+    if (vid.includes('v=')) vid = vid.split('v=')[1].split('&')[0];
+    else if (vid.includes('youtu.be/')) vid = vid.split('youtu.be/')[1].split('?')[0];
+    if (vid.length !== 11) { alert('Invalid YouTube URL/ID'); return; }
+    const s = { id: `c-${Date.now()}`, name: 'Custom Track', videoId: vid, tag: 'Custom' };
+    setStreams(p => [...p, s]);
+    setYtActive(s.id);
+    setYtCustom('');
   };
 
-  const toggleSynthSound = (type: SoundType) => {
-    if (activeSynth.has(type)) {
-      ambientEngine.stop(type);
-      setActiveSynth(prev => {
-        const next = new Set(prev);
-        next.delete(type);
-        return next;
-      });
-    } else {
-      ambientEngine.start(type, 0.5);
-      setActiveSynth(prev => new Set(prev).add(type));
-    }
-  };
+  const activeStream = streams.find(s => s.id === ytActive);
+  const today = todayStr();
+  const circ = 2 * Math.PI * 85;
+  const progress = total > 0 ? ((total - rem) / total) : 0;
 
-  const addCustomYouTube = () => {
-    const input = ytCustomUrl.trim();
-    if (!input) return;
-    let vid = '';
-    if (input.includes('watch?v=')) vid = input.split('v=')[1]?.split('&')[0] || '';
-    else if (input.includes('youtu.be/')) vid = input.split('youtu.be/')[1]?.split('?')[0] || '';
-    else vid = input;
-
-    if (vid.length === 11) {
-      const newStream = { id: `custom-${Date.now()}`, name: 'Custom Focus Audio', videoId: vid };
-      setStreamsList(prev => [...prev, newStream]);
-      setYtActiveStream(newStream.id);
-      setYtIsPlaying(true);
-      setYtCustomUrl('');
-    } else {
-      alert("Please paste a valid YouTube video URL or 11-digit video ID.");
-    }
-  };
-
-  const activeStreamObj = streamsList.find(s => s.id === ytActiveStream) || streamsList[0];
+  const soundOpts: { t: SoundType; icon: string; label: string }[] = [
+    { t: 'rain', icon: '🌧️', label: 'Rain' }, { t: 'ocean', icon: '🌊', label: 'Ocean' },
+    { t: 'cafe', icon: '☕', label: 'Café' }, { t: 'white', icon: '📻', label: 'White' },
+    { t: 'pink', icon: '🩷', label: 'Pink' }, { t: 'brown', icon: '🟤', label: 'Brown' },
+    { t: 'binaural', icon: '🧠', label: 'Alpha' },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide font-mono" style={{ color: accent }}>
-            FOCUS CHAMBER
-          </h2>
-          <p className="text-xs text-gray-400 mt-0.5">Deep work timer, procedural noise & YouTube Aura Beats</p>
-        </div>
+      <div>
+        <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>FOCUS CHAMBER</h2>
+        <p className="text-xs text-gray-400">Deep work timer · YouTube streams · Procedural sounds</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Left Column: Pomodoro Circular Timer */}
-        <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center">
-          {/* Preset Buttons */}
+        {/* TIMER */}
+        <div className="p-6 rounded-2xl border border-white/10 flex flex-col items-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
           <div className="flex flex-wrap gap-2 mb-8 justify-center">
-            {FOCUS_PRESETS.map((p, idx) => (
-              <button
-                key={p.label}
-                disabled={isRunning}
-                onClick={() => {
-                  setSelectedPreset(idx);
-                  setTotalSeconds(p.minutes * 60);
-                  setRemainingSeconds(p.minutes * 60);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all ${
-                  selectedPreset === idx ? 'text-white' : 'text-gray-500 bg-white/[0.02]'
-                }`}
-                style={selectedPreset === idx ? { background: `${accent}25`, color: accent, border: `1px solid ${accent}40` } : {}}
-              >
-                {p.label} ({p.minutes}m)
+            {FOCUS_PRESETS.map((p, i) => (
+              <button key={p.label} disabled={running} onClick={() => { setPreset(i); setTotal(p.minutes * 60); setRem(p.minutes * 60); }}
+                className="px-3 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-50"
+                style={preset === i ? { background: `${accent}25`, color: accent, border: `1px solid ${accent}40` } : { background: 'rgba(255,255,255,0.03)', color: '#888' }}>
+                {p.label} · {p.minutes}m
               </button>
             ))}
           </div>
-
-          {/* Timer Display */}
           <div className="relative w-56 h-56 flex items-center justify-center mb-8">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 200 200">
               <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
-              <circle
-                cx="100" cy="100" r="85" fill="none"
-                stroke={accent}
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 85}
-                strokeDashoffset={2 * Math.PI * 85 * (1 - (totalSeconds > 0 ? (totalSeconds - remainingSeconds) / totalSeconds : 0))}
-                style={{ transition: 'stroke-dashoffset 0.5s ease' }}
-              />
+              <circle cx="100" cy="100" r="85" fill="none" stroke={accent} strokeWidth="6" strokeLinecap="round"
+                strokeDasharray={circ} strokeDashoffset={circ * (1 - progress)} style={{ transition: 'stroke-dashoffset 0.5s' }} />
             </svg>
             <div className="absolute text-center">
-              <div className="text-4xl font-extrabold font-mono tracking-wider text-white">
-                {formatTime(remainingSeconds)}
-              </div>
-              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-mono mt-1 block">
-                {FOCUS_PRESETS[selectedPreset].label}
-              </span>
+              <div className="text-4xl font-black tracking-wider text-white">{formatTime(rem)}</div>
+              <span className="text-[10px] text-gray-500 uppercase tracking-widest">{FOCUS_PRESETS[preset].label}</span>
             </div>
           </div>
-
-          {/* Controls */}
-          <div className="flex gap-3">
-            {!isRunning ? (
-              <button
-                onClick={handleStart}
-                className="px-8 py-3 rounded-xl text-xs font-bold text-black flex items-center gap-2 transition-all shadow-lg"
-                style={{ background: accent }}
-              >
-                <Play size={16} fill="black" /> Engage Focus
+          <div className="flex gap-2">
+            {!running ? (
+              <button onClick={start} className="px-8 py-3 rounded-xl text-xs font-black text-black flex items-center gap-2" style={{ background: accent, boxShadow: `0 4px 20px ${accent}55` }}>
+                <Play size={14} fill="black" /> Engage
               </button>
             ) : (
               <>
-                <button
-                  onClick={() => setIsPaused(!isPaused)}
-                  className="px-6 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
-                  style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}
-                >
-                  {isPaused ? <Play size={14} /> : <Pause size={14} />} {isPaused ? 'Resume' : 'Pause'}
+                <button onClick={() => setPaused(!paused)} className="px-6 py-2.5 rounded-xl text-xs font-black flex items-center gap-2"
+                  style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+                  {paused ? <><Play size={13} /> Resume</> : <><Pause size={13} /> Pause</>}
                 </button>
-                <button
-                  onClick={handleReset}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-400"
-                >
-                  <Square size={14} />
-                </button>
+                <button onClick={reset} className="px-4 py-2.5 rounded-xl text-xs font-black bg-white/5 text-gray-400"><Square size={13} /></button>
               </>
             )}
           </div>
         </div>
 
-        {/* Right Column: YouTube Focus Audio + Procedural Noise */}
-        <div className="space-y-6">
-
-          {/* YouTube Aura Beats Player */}
-          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold font-mono uppercase text-red-400 flex items-center gap-2">
-                <Youtube size={16} /> Aura Beats (YouTube Focus)
-              </h4>
-              <button
-                onClick={() => setYtIsPlaying(!ytIsPlaying)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  ytIsPlaying ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/5 text-gray-400'
-                }`}
-              >
-                {ytIsPlaying ? <Pause size={12} /> : <Play size={12} />}
-                {ytIsPlaying ? 'Stream Active' : 'Stream Paused'}
-              </button>
-            </div>
-
-            {/* Custom URL Input */}
+        {/* AUDIO */}
+        <div className="space-y-4">
+          {/* YouTube */}
+          <div className="p-5 rounded-2xl border border-white/10 space-y-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h4 className="text-xs font-black uppercase text-red-400 flex items-center gap-2"><Youtube size={14} /> YouTube Focus Audio</h4>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={ytCustomUrl}
-                onChange={e => setYtCustomUrl(e.target.value)}
-                placeholder="Paste YouTube Link or Video ID..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-white/30"
-              />
-              <button
-                onClick={addCustomYouTube}
-                className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold flex items-center gap-1"
-              >
-                <Plus size={14} /> Add
-              </button>
+              <input value={ytCustom} onChange={e => setYtCustom(e.target.value)} placeholder="Paste YouTube link/ID..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-white/30" />
+              <button onClick={addYt} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs flex items-center gap-1"><Plus size={12} /> Add</button>
             </div>
-
-            {/* Curated Stream Selector */}
-            <div className="grid grid-cols-2 gap-2">
-              {streamsList.map(stream => {
-                const active = ytActiveStream === stream.id;
+            <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto">
+              {streams.map(s => {
+                const active = ytActive === s.id;
                 return (
-                  <button
-                    key={stream.id}
-                    onClick={() => {
-                      setYtActiveStream(stream.id);
-                      setYtIsPlaying(true);
-                    }}
-                    className={`p-2.5 rounded-xl text-left text-xs transition-all border ${
-                      active ? 'bg-white/10 text-white' : 'bg-white/[0.02] text-gray-400 border-white/5 hover:border-white/10'
-                    }`}
-                    style={active ? { borderColor: `${accent}50`, color: accent } : {}}
-                  >
-                    <div className="font-bold truncate">{stream.name}</div>
-                    <div className="text-[10px] text-gray-500 font-mono">ID: {stream.videoId}</div>
+                  <button key={s.id} onClick={() => setYtActive(active ? null : s.id)}
+                    className="p-2.5 rounded-xl text-left text-xs border transition-all"
+                    style={active ? { background: `${accent}15`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#aaa' }}>
+                    <div className="font-bold truncate">{s.name}</div>
+                    <div className="text-[9px] text-gray-500">{s.tag}</div>
                   </button>
                 );
               })}
             </div>
-
-            {/* Hidden Embed / Active Player Frame */}
-            {ytIsPlaying && (
-              <div className="rounded-xl overflow-hidden aspect-video w-full max-h-48 border border-white/10">
-                <iframe
-                  className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${activeStreamObj.videoId}?autoplay=1&controls=1&modestbranding=1&rel=0`}
-                  title="YouTube Focus Stream"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                />
+            {activeStream && (
+              <div className="rounded-xl overflow-hidden border border-white/10">
+                <iframe key={activeStream.id} className="w-full aspect-video" src={`https://www.youtube.com/embed/${activeStream.videoId}?autoplay=1`} allow="autoplay; encrypted-media" title="YT" />
               </div>
             )}
           </div>
 
-          {/* Procedural Ambient Sound Layers */}
-          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
-            <h4 className="text-xs font-bold font-mono uppercase text-gray-300 flex items-center gap-2">
-              <Volume2 size={15} style={{ color: accent }} /> Procedural Noise Mixer
-            </h4>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { type: 'rain' as SoundType, label: 'Rain', icon: '🌧️' },
-                { type: 'ocean' as SoundType, label: 'Ocean', icon: '🌊' },
-                { type: 'cafe' as SoundType, label: 'Café', icon: '☕' },
-                { type: 'white' as SoundType, label: 'White', icon: '📻' },
-                { type: 'pink' as SoundType, label: 'Pink', icon: '🩷' },
-                { type: 'brown' as SoundType, label: 'Brown', icon: '🟤' },
-                { type: 'binaural' as SoundType, label: 'Alpha', icon: '🧠' },
-              ].map(s => {
-                const active = activeSynth.has(s.type);
+          {/* Synth */}
+          <div className="p-5 rounded-2xl border border-white/10 space-y-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h4 className="text-xs font-black uppercase text-gray-300 flex items-center gap-2"><Volume2 size={14} style={{ color: accent }} /> Procedural Ambience</h4>
+            <div className="grid grid-cols-4 gap-2">
+              {soundOpts.map(s => {
+                const active = synth.has(s.t);
                 return (
-                  <button
-                    key={s.type}
-                    onClick={() => toggleSynthSound(s.type)}
-                    className={`p-2.5 rounded-xl text-xs flex items-center gap-2 transition-all border ${
-                      active ? 'text-white' : 'bg-white/[0.02] text-gray-500 border-white/5'
-                    }`}
-                    style={active ? { background: `${accent}25`, borderColor: `${accent}40`, color: accent } : {}}
-                  >
-                    <span>{s.icon}</span>
-                    <span className="font-bold">{s.label}</span>
+                  <button key={s.t} onClick={() => toggleSynth(s.t)}
+                    className="p-2.5 rounded-xl text-xs flex flex-col items-center gap-1 border transition-all"
+                    style={active ? { background: `${accent}25`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#888' }}>
+                    <span className="text-lg">{s.icon}</span>
+                    <span className="font-bold text-[10px]">{s.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
+          {/* Today */}
+          <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <h4 className="text-xs font-black uppercase mb-2 text-gray-300">Today's Sessions</h4>
+            {sessions.filter((s: FocusSession) => s.date === today).length === 0 ? (
+              <p className="text-xs text-gray-500 italic">No sessions logged yet.</p>
+            ) : (
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {sessions.filter((s: FocusSession) => s.date === today).map((s: FocusSession) => (
+                  <div key={s.id} className="flex justify-between text-xs p-2 rounded-lg bg-white/[0.02]">
+                    <span>{s.label}</span>
+                    <span className="text-gray-400">{s.minutes}m</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
 
+// ============================================
+// LOOT LOCKER (Categorized)
+// ============================================
+function LootView({ hero, inventory, equipped, buyItem, equipItem, accent }: any) {
+  const [cat, setCat] = useState<ShopType>('title');
+  const items = SHOP.filter(i => i.type === cat);
+
+  const tabs: { key: ShopType; label: string; icon: any }[] = [
+    { key: 'title', label: 'Titles', icon: BookOpen },
+    { key: 'avatar', label: 'Avatars', icon: Star },
+    { key: 'frame', label: 'Frames', icon: Target },
+    { key: 'theme', label: 'Themes', icon: Music },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>LOOT LOCKER</h2>
+          <p className="text-xs text-gray-400">Unlock legendary titles, avatars, frames & themes</p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm font-black">
+          <Coins size={14} /> {hero.gold} Gold
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {tabs.map(t => {
+          const Ic = t.icon;
+          const active = cat === t.key;
+          const count = SHOP.filter(i => i.type === t.key).length;
+          const owned = SHOP.filter(i => i.type === t.key && inventory.includes(i.id)).length;
+          return (
+            <button key={t.key} onClick={() => setCat(t.key)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all"
+              style={active ? { background: `${accent}25`, color: accent, border: `1px solid ${accent}40` } : { background: 'rgba(255,255,255,0.03)', color: '#888' }}>
+              <Ic size={14} /> {t.label} <span className="text-[10px] opacity-60">({owned}/{count})</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <AnimatePresence mode="popLayout">
+          {items.map(item => {
+            const owned = inventory.includes(item.id);
+            const isEq = equipped[item.type] === item.id;
+            const rc = rarityColor(item.rarity);
+            const canAfford = hero.gold >= item.cost;
+            return (
+              <motion.div key={item.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                className="p-5 rounded-2xl border relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderColor: isEq ? `${accent}55` : 'rgba(255,255,255,0.1)' }}>
+                {/* Rarity ribbon */}
+                <div className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: `${rc}20`, color: rc }}>
+                  {item.rarity}
+                </div>
+                <div className="flex items-start gap-3 mb-4 mt-1">
+                  <div className="text-3xl">{item.icon}</div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-black">{item.name}</h4>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</p>
+                  </div>
+                </div>
+                {isEq ? (
+                  <div className="py-2 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-black text-center flex items-center justify-center gap-1.5">
+                    <Check size={14} /> Equipped
+                  </div>
+                ) : owned ? (
+                  <button onClick={() => equipItem(item)} className="w-full py-2 rounded-xl text-xs font-black transition-all hover:opacity-90"
+                    style={{ background: `${accent}25`, color: accent, border: `1px solid ${accent}40` }}>
+                    Equip
+                  </button>
+                ) : (
+                  <button onClick={() => buyItem(item)} disabled={!canAfford} className="w-full py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    style={{ background: canAfford ? accent : 'rgba(255,255,255,0.03)', color: canAfford ? '#000' : '#666' }}>
+                    {canAfford ? <><Coins size={12} /> Buy · {item.cost}</> : <><Lock size={12} /> {item.cost} Gold</>}
+                  </button>
+                )}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
     </div>
   );
