@@ -43,6 +43,7 @@ function getOrCreateUserId() {
 
 const UID = getOrCreateUserId();
 
+// FIXED: TypeScript signature allows functional updates to prevent build crashes
 function useStored<T>(key: string, initial: T): [T, (val: T | ((prev: T) => T)) => void] {
   const fullKey = `${key}_${UID}`;
   const [val, setVal] = useState<T>(() => {
@@ -65,42 +66,25 @@ function useStored<T>(key: string, initial: T): [T, (val: T | ((prev: T) => T)) 
 const todayStr = () => new Date().toISOString().split('T')[0];
 const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
 
-// --- PREMIUM HIGH-DETAIL SWORD LOGO ---
+// --- PREMIUM LOGO COMPONENT ---
 function SwordLogo({ size = 44 }: { size?: number }) {
   return (
-    <div 
+    <div
       className="rounded-full flex items-center justify-center relative overflow-hidden flex-shrink-0"
-      style={{ 
-        width: size, 
-        height: size, 
-        background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 50%, #C084FC 100%)',
-        boxShadow: '0 4px 20px rgba(124, 58, 237, 0.55)',
-        border: '1.5px solid rgba(192, 132, 252, 0.4)'
+      style={{
+        width: size,
+        height: size,
+        background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 55%, #A78BFA 100%)',
+        boxShadow: '0 4px 18px rgba(124, 58, 237, 0.5)',
       }}
     >
-      <svg width={size * 0.85} height={size * 0.85} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="bladeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FFFFFF" />
-            <stop offset="50%" stopColor="#F1F5F9" />
-            <stop offset="50%" stopColor="#E2E8F0" />
-            <stop offset="100%" stopColor="#CBD5E1" />
-          </linearGradient>
-        </defs>
-        <g transform="translate(0, -1)">
-          {/* Blade Body */}
-          <path d="M50 14 L56 38 L53 62 L47 62 L44 38 Z" fill="url(#bladeGrad)" />
-          {/* Blade Center Ridge */}
-          <path d="M50 14 L50 62" stroke="#94A3B8" strokeWidth="0.8" />
-          {/* Curved Guard */}
-          <path d="M30 61 C40 59 60 59 70 61 L70 66 C60 64 40 64 30 66 Z" fill="#FFFFFF" />
-          {/* Grip */}
-          <rect x="46" y="66" width="8" height="15" rx="1" fill="#E2E8F0" />
-          {/* Grip Leather Wraps */}
-          <path d="M46 69 H54 M46 72 H54 M46 75 H54 M46 78 H54" stroke="#64748B" strokeWidth="1" />
-          {/* Pommel */}
-          <circle cx="50" cy="84" r="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1" />
-        </g>
+      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 24 24" fill="none">
+        <path d="M12 2 L13.3 8.8 L15.8 10.2 L13.3 11 L12 20 L10.7 11 L8.2 10.2 L10.7 8.8 Z" fill="white" />
+        <path d="M12 2 L13.3 8.8 L15.8 10.2 L13.3 11 L12 20 Z" fill="#E2E8F0" />
+        <rect x="7" y="10.8" width="10" height="1.6" rx="0.4" fill="white" />
+        <rect x="10.6" y="12.2" width="2.8" height="5.2" rx="0.3" fill="#CBD5E1" />
+        <path d="M10.6 13.4 H13.4 M10.6 14.8 H13.4 M10.6 16.2 H13.4" stroke="#94A3B8" strokeWidth="0.45" />
+        <circle cx="12" cy="18.6" r="1.35" fill="white" />
       </svg>
     </div>
   );
@@ -251,6 +235,7 @@ class FocusAudio {
 
   private init() {
     if (!this.ctx) {
+      // FIXED: Safely instantiate AudioContext for TypeScript
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioCtx();
     }
@@ -385,6 +370,7 @@ export default function TaskForge() {
   // Focus States
   const [hiddenPlaylists, setHiddenPlaylists] = useStored<string[]>('tf_hidden_spotify_v1', []);
   const [customPlaylists, setCustomPlaylists] = useStored<any[]>('tf_custom_spotify_v1', []);
+  const [showHiddenBin, setShowHiddenBin] = useState(false);
 
   const touch = () => setHero({ ...hero });
 
@@ -457,7 +443,7 @@ export default function TaskForge() {
     <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900/90 backdrop-blur-xl border-r border-slate-800 transition-transform lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="p-6 flex flex-col h-full">
         <div className="flex items-center gap-3 mb-10">
-          <SwordLogo size={44} />
+          <SwordLogo size={42} />
           <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">TASK FORGE</h1>
         </div>
 
@@ -636,8 +622,8 @@ export default function TaskForge() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-[2rem] flex flex-col items-center justify-center text-center">
             <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6">Light for the Hour</h3>
-            <p className="text-3xl sm:text-4xl font-black text-white italic leading-tight mb-4 tracking-tight drop-shadow-md">"{verse.text}"</p>
-            <p className="text-violet-400 font-bold uppercase tracking-widest text-sm mt-2">- {verse.ref}</p>
+            <p className="text-4xl md:text-5xl font-black text-white italic leading-tight mb-4 tracking-tight drop-shadow-md">"{verse.text}"</p>
+            <p className="text-violet-400 font-bold uppercase tracking-widest">- {verse.ref}</p>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-xl relative overflow-hidden">
@@ -870,7 +856,6 @@ export default function TaskForge() {
     const [noiseVol, setNoiseVol] = useState(0.5);
     const [activeSpotify, setActiveSpotify] = useState<string | null>(null);
     const [customLink, setCustomLink] = useState('');
-    const [showHiddenBin, setShowHiddenBin] = useState(false);
 
     useEffect(() => {
       let t: any;
@@ -897,7 +882,7 @@ export default function TaskForge() {
     };
 
     const hidePlaylist = (id: string) => {
-      setHiddenPlaylists(prev => [...prev, id]);
+      setHiddenPlaylists(prev => prev.includes(id) ? prev : [...prev, id]);
       if (activeSpotify === id) setActiveSpotify(null);
     };
 
@@ -988,25 +973,7 @@ export default function TaskForge() {
                 </button>
               </div>
             ) : (
-              <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center relative">
-                
-                {/* Archive Button for Hidden Suggestions */}
-                <div className="absolute top-6 right-6">
-                   <button 
-                      onClick={() => setShowHiddenBin(!showHiddenBin)}
-                      className={`p-3 rounded-xl transition-all relative ${hiddenPlaylists.length > 0 ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white' : 'bg-transparent text-slate-800 cursor-not-allowed'}`}
-                      disabled={hiddenPlaylists.length === 0}
-                      title="Hidden Suggestions Archive"
-                   >
-                      <Archive size={20} />
-                      {hiddenPlaylists.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-600 text-[9px] font-black flex items-center justify-center rounded-full text-white ring-2 ring-slate-900">
-                          {hiddenPlaylists.length}
-                        </span>
-                      )}
-                   </button>
-                </div>
-
+              <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center">
                 <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 text-slate-600"><Music size={40} /></div>
                 <h3 className="text-2xl font-black text-white mb-3">Atmospheric Resonance</h3>
                 <p className="text-slate-500 font-bold max-w-sm">Select a sonic environment below or paste a Spotify playlist link to begin your deep work session.</p>
@@ -1018,32 +985,48 @@ export default function TaskForge() {
               </div>
             )}
 
-            {/* Hidden Suggestions Archive Panel */}
+            {/* Archive Button + Header above Grid */}
+            <div className="flex justify-between items-center px-2 mb-2">
+               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Soundscapes</h3>
+               <button 
+                  onClick={() => setShowHiddenBin(!showHiddenBin)}
+                  disabled={hiddenPlaylists.length === 0}
+                  className={`relative p-2.5 rounded-xl transition-all flex items-center justify-center ${hiddenPlaylists.length > 0 ? 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer' : 'text-slate-700 cursor-not-allowed'}`}
+                  title="Archive / Hidden Suggestions"
+               >
+                  <Archive size={18} />
+                  {hiddenPlaylists.length > 0 && (
+                     <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-violet-600 text-[10px] font-bold text-white ring-2 ring-black">
+                        {hiddenPlaylists.length}
+                     </span>
+                  )}
+               </button>
+            </div>
+
+            {/* Hidden Bin Panel */}
             <AnimatePresence>
-              {showHiddenBin && hiddenPlaylists.length > 0 && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                  <div className="p-5 bg-slate-900/90 border border-slate-700 rounded-2xl mb-6 shadow-xl">
-                    <h4 className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Archive size={14} /> Hidden Suggestions Archive</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {hiddenPlaylists.map(id => {
-                        const p = [...SPOTIFY_PLAYLISTS, ...customPlaylists].find(x => x.id === id);
-                        if (!p) return null;
-                        return (
-                          <div key={id} className="flex items-center gap-2 bg-slate-800 border border-slate-700 pl-3 pr-2 py-1.5 rounded-xl text-sm shadow-sm">
-                            <span className="font-bold text-slate-300">{p.name}</span>
-                            <button onClick={() => restorePlaylist(id)} className="text-slate-400 hover:text-violet-400 p-1 rounded-md transition-colors bg-slate-900/60" title="Restore Suggestion">
-                              <RotateCw size={14} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
+               {showHiddenBin && hiddenPlaylists.length > 0 && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                     <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl mb-6 shadow-xl">
+                        <div className="flex flex-wrap gap-2">
+                           {hiddenPlaylists.map(id => {
+                              const p = [...SPOTIFY_PLAYLISTS, ...customPlaylists].find(x => x.id === id);
+                              if (!p) return null;
+                              return (
+                                 <div key={id} className="flex items-center gap-3 bg-slate-800 border border-slate-700 pl-3 pr-2 py-1.5 rounded-xl text-sm">
+                                    <span className="font-bold text-slate-300">{p.name}</span>
+                                    <button type="button" onClick={() => restorePlaylist(id)} className="text-slate-500 hover:text-violet-400 p-1 bg-slate-900/50 rounded-md transition-colors" title="Restore">
+                                       <RotateCw size={14} />
+                                    </button>
+                                 </div>
+                              );
+                           })}
+                        </div>
+                     </div>
+                  </motion.div>
+               )}
             </AnimatePresence>
 
-            {/* Spotify Playlists Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
               {allPlaylists.map(p => (
                 <div key={p.id} className="relative group">
@@ -1057,12 +1040,12 @@ export default function TaskForge() {
                       <p className="font-bold text-white leading-tight">{p.name}</p>
                     </div>
                   </button>
-                  
-                  {/* Strict Hover-Only X Button */}
-                  <button 
+                  {/* Strict Hover X */}
+                  <button
+                    type="button"
+                    title="Hide suggestion"
                     onClick={(e) => { e.stopPropagation(); hidePlaylist(p.id); }}
-                    className="absolute top-2 right-2 p-1.5 bg-slate-800/90 text-slate-400 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:text-red-500 hover:bg-red-500/20 transition-all z-10 shadow-lg"
-                    title="Hide Suggestion"
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-800/90 text-slate-400 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:text-red-400 hover:bg-red-500/20 transition-all z-10"
                   >
                     <X size={14} />
                   </button>
@@ -1071,10 +1054,12 @@ export default function TaskForge() {
             </div>
 
             {allPlaylists.length === 0 && !showHiddenBin && (
-              <div className="text-center py-10 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
-                <p className="text-slate-500 font-bold mb-4">All suggestions hidden.</p>
-                <button onClick={() => setShowHiddenBin(true)} className="text-violet-500 font-black text-xs uppercase flex items-center justify-center gap-1 mx-auto"><Archive size={14} /> Open Archive</button>
-              </div>
+               <div className="text-center py-10 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
+                 <p className="text-slate-500 font-bold mb-4">All suggestions hidden.</p>
+                 <button onClick={() => setShowHiddenBin(true)} className="text-violet-500 font-black text-xs uppercase flex items-center justify-center gap-1 mx-auto">
+                   <Archive size={14} /> Open Archive
+                 </button>
+               </div>
             )}
           </div>
         </div>
