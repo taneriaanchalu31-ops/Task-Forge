@@ -5,7 +5,7 @@ import {
   Flame, Sword, Zap, Target, BookOpen, Heart, Plus, Trash2, Check,
   Play, Pause, Square, Clock, Volume2, Quote,
   Coins, Lock, X, TrendingUp, Edit3, Music, AlertTriangle, Star,
-  ChevronRight, ChevronLeft, User, ExternalLink
+  ChevronRight, ChevronLeft, User, ExternalLink, RotateCcw
 } from 'lucide-react';
 
 // ============================================
@@ -54,8 +54,31 @@ interface SpotifyPlaylist {
   id: string;
   name: string;
   tag: string;
-  spotifyId: string; // playlist or album ID
+  spotifyId: string;
   kind: 'playlist' | 'album' | 'track';
+}
+
+// ============================================
+// PURPLE SWORD LOGO COMPONENT
+// ============================================
+function SwordLogo({ size = 44 }: { size?: number }) {
+  return (
+    <div
+      className="rounded-full flex items-center justify-center relative overflow-hidden flex-shrink-0"
+      style={{
+        width: size, height: size,
+        background: 'linear-gradient(135deg, #7C3AED, #A78BFA)',
+        boxShadow: '0 4px 20px rgba(124, 58, 237, 0.55)',
+      }}
+      aria-hidden
+    >
+      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none">
+        <path d="M12 2 L13.2 9 L16 10.5 L13.2 11.2 L12 20 L10.8 11.2 L8 10.5 L10.8 9 Z" fill="white" />
+        <path d="M7 11.5 H17 V13.2 H7 Z" fill="white" />
+        <path d="M10.5 20 H13.5 V22 H10.5 Z" fill="white" />
+      </svg>
+    </div>
+  );
 }
 
 // ============================================
@@ -92,7 +115,6 @@ const VERSES: Verse[] = [
 ];
 
 const SHOP: ShopItem[] = [
-  // TITLES
   { id: 't-novice', name: 'Novice', description: 'Every legend begins here.', type: 'title', cost: 0, icon: '📜', rarity: 'common', value: 'Novice' },
   { id: 't-warrior', name: 'Warrior', description: 'Battle-tested and ready.', type: 'title', cost: 60, icon: '⚔️', rarity: 'common', value: 'Warrior' },
   { id: 't-scholar', name: 'Scholar', description: 'Master of knowledge.', type: 'title', cost: 90, icon: '📚', rarity: 'common', value: 'Scholar' },
@@ -112,7 +134,6 @@ const SHOP: ShopItem[] = [
   { id: 't-eternal', name: 'The Eternal One', description: 'Transcended reality.', type: 'title', cost: 1500, icon: '✨', rarity: 'mythic', value: 'The Eternal One' },
   { id: 't-cosmic', name: 'Cosmic Emperor', description: 'Ruler of dimensions.', type: 'title', cost: 2000, icon: '🌠', rarity: 'mythic', value: 'Cosmic Emperor' },
 
-  // AVATARS
   { id: 'a-fox', name: 'Swift Fox', description: 'Quick and cunning.', type: 'avatar', cost: 0, icon: '🦊', rarity: 'common', value: '🦊' },
   { id: 'a-wolf', name: 'Lone Wolf', description: 'Fierce independence.', type: 'avatar', cost: 75, icon: '🐺', rarity: 'common', value: '🐺' },
   { id: 'a-bear', name: 'Grizzly Bear', description: 'Raw strength.', type: 'avatar', cost: 90, icon: '🐻', rarity: 'common', value: '🐻' },
@@ -134,7 +155,6 @@ const SHOP: ShopItem[] = [
   { id: 'a-galaxy', name: 'Galaxy Spirit', description: 'Transcendent existence.', type: 'avatar', cost: 1200, icon: '🌟', rarity: 'mythic', value: '🌟' },
   { id: 'a-god', name: 'The Divine', description: 'Ultimate ascendance.', type: 'avatar', cost: 1800, icon: '☀️', rarity: 'mythic', value: '☀️' },
 
-  // FRAMES
   { id: 'f-none', name: 'Standard', description: 'Clean minimalist border.', type: 'frame', cost: 0, icon: '⬜', rarity: 'common', value: 'none' },
   { id: 'f-bronze', name: 'Bronze Ring', description: 'Solid bronze border.', type: 'frame', cost: 50, icon: '🥉', rarity: 'common', value: 'bronze' },
   { id: 'f-silver', name: 'Silver Crest', description: 'Polished silver ring.', type: 'frame', cost: 120, icon: '🥈', rarity: 'rare', value: 'silver' },
@@ -150,7 +170,6 @@ const SHOP: ShopItem[] = [
   { id: 'f-holy', name: 'Holy Halo', description: 'Divine sanctified glow.', type: 'frame', cost: 1000, icon: '😇', rarity: 'legendary', value: 'holy' },
   { id: 'f-rainbow', name: 'Prism Halo', description: 'All colors, all power.', type: 'frame', cost: 1500, icon: '🌈', rarity: 'mythic', value: 'rainbow' },
 
-  // THEMES
   { id: 'th-violet', name: 'Nebula Violet', description: 'Royal cosmic purple.', type: 'theme', cost: 0, icon: '💜', rarity: 'common', value: 'violet' },
   { id: 'th-cyan', name: 'Cyber Cyan', description: 'Futuristic blue.', type: 'theme', cost: 60, icon: '💎', rarity: 'common', value: 'cyan' },
   { id: 'th-emerald', name: 'Emerald Forest', description: 'Vital green energy.', type: 'theme', cost: 60, icon: '💚', rarity: 'common', value: 'emerald' },
@@ -187,7 +206,6 @@ const FOCUS_PRESETS = [
   { label: 'Marathon', minutes: 90 },
 ];
 
-// Spotify playlists (public embed IDs — work reliably in iframes)
 const SPOTIFY_PLAYLISTS: SpotifyPlaylist[] = [
   { id: 'lofi', name: 'Lofi Focus Beats', tag: 'Lofi', spotifyId: '0vvXsWCc8UbPnJsJQ6COjM', kind: 'playlist' },
   { id: 'lofi2', name: 'Chill Lofi Study', tag: 'Lofi', spotifyId: '37i9dQZF1DWWQRwui0ExPn', kind: 'playlist' },
@@ -514,7 +532,6 @@ export default function App() {
     notify(`New quest added!`, '📜', 'info');
   };
 
-  // HABITS — true anti-cheat (reward once per day)
   const toggleHabit = (id: string) => {
     const today = todayStr();
     setHabits(prev => prev.map(h => {
@@ -607,7 +624,6 @@ export default function App() {
     <div className="min-h-screen text-gray-100 flex flex-col md:flex-row font-sans"
       style={{ background: '#08060F', backgroundImage: `radial-gradient(circle at 20% 10%, ${accent}12 0%, transparent 50%), radial-gradient(circle at 80% 90%, ${accent}08 0%, transparent 50%)` }}>
 
-      {/* TOASTS */}
       <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-xs">
         <AnimatePresence>
           {toasts.map(t => (
@@ -621,15 +637,10 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* SIDEBAR — single sword logo */}
       <aside className="hidden md:flex flex-col w-60 border-r border-white/5 p-4 justify-between backdrop-blur-xl" style={{ background: 'rgba(11,8,22,0.5)' }}>
         <div className="space-y-6">
           <div className="flex items-center gap-3 px-2 py-2">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center relative"
-              style={{ background: `linear-gradient(135deg, ${accent}, ${accent}66)`, boxShadow: `0 4px 20px ${accent}66` }}>
-              <Sword size={22} className="text-white" strokeWidth={2.5} />
-              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-yellow-400 border-2 border-[#08060F]" />
-            </div>
+            <SwordLogo size={44} />
             <div>
               <h1 className="font-black text-sm tracking-wider" style={{ color: accent }}>TASK FORGE</h1>
               <p className="text-[9px] text-gray-500 uppercase tracking-widest">Productivity RPG</p>
@@ -673,6 +684,11 @@ export default function App() {
         </div>
       </aside>
 
+      <div className="md:hidden flex items-center gap-3 p-4 border-b border-white/5">
+        <SwordLogo size={36} />
+        <h1 className="font-black text-sm tracking-wider" style={{ color: accent }}>TASK FORGE</h1>
+      </div>
+
       <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full pb-24 md:pb-8">
         {tab === 'dash' && <DashboardView {...{ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, setShowTutorialModal }} />}
         {tab === 'habits' && <HabitsView {...{ habits, addHabit, toggleHabit, deleteHabit, accent }} />}
@@ -710,67 +726,19 @@ export default function App() {
 }
 
 // ============================================
-// INTERACTIVE TUTORIAL (with Urgent / Important)
+// TUTORIAL
 // ============================================
 function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFinish: () => void; onNav: (t: any) => void }) {
   const [step, setStep] = useState(0);
   const steps = [
-    {
-      icon: '⚔️',
-      title: 'Welcome to Task Forge!',
-      body: 'Your real life becomes an RPG. Complete tasks & habits to earn XP, gold, defeat bosses & unlock legendary loot.',
-      action: null as null | (() => void),
-      actionText: '',
-    },
-    {
-      icon: '📜',
-      title: 'Quest Log — Your Missions',
-      body: 'Add your own tasks. Complete each quest once to earn XP + Gold (no cheating on re-checks).',
-      action: () => onNav('todos'),
-      actionText: 'Open Quest Log →',
-    },
-    {
-      icon: '⚡',
-      title: 'Urgent vs Important',
-      body: 'URGENT = needs attention soon (deadline, fire to put out). IMPORTANT = moves you toward big goals (health, career, faith, deep work). Use both flags so you know what to do first. Tip: Important+Urgent = do first. Important only = schedule. Urgent only = quick handle. Neither = backlog or drop.',
-      action: () => onNav('todos'),
-      actionText: 'Try adding a quest →',
-    },
-    {
-      icon: '🔥',
-      title: 'Habit Forge',
-      body: 'Build daily habits. Each NEW day earns rewards once. Re-checking the same day does NOT give more gold.',
-      action: () => onNav('habits'),
-      actionText: 'Open Habit Forge →',
-    },
-    {
-      icon: '🎵',
-      title: 'Focus Chamber + Spotify',
-      body: 'Deep-work timer with Spotify playlists (Lofi, Jazz, Christian worship, Ethiopian music, Piano, Nature) plus procedural ambient sounds.',
-      action: () => onNav('focus'),
-      actionText: 'Open Focus Chamber →',
-    },
-    {
-      icon: '👹',
-      title: 'Daily Boss',
-      body: 'Every day a boss appears. Quests, habits & focus damage it. Defeat it for big rewards!',
-      action: () => onNav('dash'),
-      actionText: 'View Dashboard →',
-    },
-    {
-      icon: '🛒',
-      title: 'Loot Locker',
-      body: 'Spend gold on 70+ titles, avatars, frames & themes from Common to Mythic.',
-      action: () => onNav('loot'),
-      actionText: 'Open Loot Locker →',
-    },
-    {
-      icon: '🎉',
-      title: "You're all set!",
-      body: 'Progress auto-saves privately in this browser. Click your name on the Dashboard to rename yourself. Now go forge greatness!',
-      action: null,
-      actionText: '',
-    },
+    { icon: '⚔️', title: 'Welcome to Task Forge!', body: 'Your real life becomes an RPG. Complete tasks & habits to earn XP, gold, defeat bosses & unlock legendary loot.', action: null as null | (() => void), actionText: '' },
+    { icon: '📜', title: 'Quest Log — Your Missions', body: 'Add your own tasks. Complete each quest once to earn XP + Gold (no cheating on re-checks).', action: () => onNav('todos'), actionText: 'Open Quest Log →' },
+    { icon: '⚡', title: 'Urgent vs Important', body: 'URGENT = time-sensitive (deadlines, fires to put out). IMPORTANT = long-term goals (health, career, faith, deep work). Use BOTH flags to prioritize: Important+Urgent = do first. Important only = schedule. Urgent only = quick handle. Neither = backlog.', action: () => onNav('todos'), actionText: 'Try adding a quest →' },
+    { icon: '🔥', title: 'Habit Forge', body: 'Build daily habits. Each NEW day earns rewards once. Re-checking the same day does NOT give more gold.', action: () => onNav('habits'), actionText: 'Open Habit Forge →' },
+    { icon: '🎵', title: 'Focus Chamber + Spotify', body: 'Deep-work timer with Spotify playlists. Remove any suggestion with X. Add your own Spotify links too!', action: () => onNav('focus'), actionText: 'Open Focus Chamber →' },
+    { icon: '👹', title: 'Daily Boss', body: 'Every day a boss appears. Quests, habits & focus damage it. Defeat it for big rewards!', action: () => onNav('dash'), actionText: 'View Dashboard →' },
+    { icon: '🛒', title: 'Loot Locker', body: 'Spend gold on 70+ titles, avatars, frames & themes from Common to Mythic.', action: () => onNav('loot'), actionText: 'Open Loot Locker →' },
+    { icon: '🎉', title: "You're all set!", body: 'Progress auto-saves privately in this browser. Click your name on the Dashboard to rename yourself. Now go forge greatness!', action: null, actionText: '' },
   ];
   const cur = steps[step];
 
@@ -796,8 +764,7 @@ function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFi
 
         <div className="flex justify-center gap-2 py-2">
           {steps.map((_, i) => (
-            <div key={i} className="rounded-full transition-all"
-              style={{ background: i === step ? accent : 'rgba(255,255,255,0.15)', width: i === step ? 24 : 8, height: 8 }} />
+            <div key={i} className="rounded-full transition-all" style={{ background: i === step ? accent : 'rgba(255,255,255,0.15)', width: i === step ? 24 : 8, height: 8 }} />
           ))}
         </div>
 
@@ -830,9 +797,9 @@ function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFi
   );
 }
 
-// Dashboard / Habits / Todos / Loot — same structure as last version
-// (keeping core logic; FocusView rewritten for Spotify)
-
+// ============================================
+// DASHBOARD
+// ============================================
 function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, setShowTutorialModal }: any) {
   const [editName, setEditName] = useState(false);
   const [nameVal, setNameVal] = useState(hero.name);
@@ -999,6 +966,9 @@ function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, 
   );
 }
 
+// ============================================
+// HABITS
+// ============================================
 function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any) {
   const [show, setShow] = useState(false);
   const [name, setName] = useState('');
@@ -1085,6 +1055,9 @@ function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any)
   );
 }
 
+// ============================================
+// TODOS
+// ============================================
 function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, accent }: any) {
   const [show, setShow] = useState(false);
   const [title, setTitle] = useState('');
@@ -1195,7 +1168,7 @@ function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, a
 }
 
 // ============================================
-// FOCUS — Spotify instead of YouTube
+// FOCUS CHAMBER (with remove suggestion)
 // ============================================
 function FocusView({ sessions, focusFinish, accent }: any) {
   const [preset, setPreset] = useState(1);
@@ -1207,7 +1180,8 @@ function FocusView({ sessions, focusFinish, accent }: any) {
 
   const [activeSpotify, setActiveSpotify] = useState<string | null>(null);
   const [customUrl, setCustomUrl] = useState('');
-  const [customList, setCustomList] = useState<SpotifyPlaylist[]>([]);
+  const [customList, setCustomList] = useStored<SpotifyPlaylist[]>('tf_custom_spotify_v1', []);
+  const [hiddenPlaylists, setHiddenPlaylists] = useStored<string[]>('tf_hidden_spotify_v1', []);
   const [synth, setSynth] = useState<Set<SoundType>>(new Set());
 
   useEffect(() => {
@@ -1244,7 +1218,6 @@ function FocusView({ sessions, focusFinish, accent }: any) {
     else { engine.start(t, 0.5); setSynth(p => new Set(p).add(t)); }
   };
 
-  // Accept Spotify playlist/album/track links or bare IDs
   const addSpotify = () => {
     let raw = customUrl.trim();
     if (!raw) return;
@@ -1263,11 +1236,20 @@ function FocusView({ sessions, focusFinish, accent }: any) {
     setCustomUrl('');
   };
 
+  const hidePlaylist = (id: string) => {
+    setHiddenPlaylists(prev => (prev.includes(id) ? prev : [...prev, id]));
+    setCustomList(prev => prev.filter(p => p.id !== id));
+    if (activeSpotify === id) setActiveSpotify(null);
+  };
+
+  const restoreAllPlaylists = () => setHiddenPlaylists([]);
+
   const allPlaylists = [...SPOTIFY_PLAYLISTS, ...customList];
+  const visiblePlaylists = allPlaylists.filter(p => !hiddenPlaylists.includes(p.id));
   const active = allPlaylists.find(p => p.id === activeSpotify);
 
   const grouped: Record<string, SpotifyPlaylist[]> = {};
-  allPlaylists.forEach(p => {
+  visiblePlaylists.forEach(p => {
     if (!grouped[p.tag]) grouped[p.tag] = [];
     grouped[p.tag].push(p);
   });
@@ -1291,7 +1273,6 @@ function FocusView({ sessions, focusFinish, accent }: any) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* TIMER */}
         <div className="p-6 rounded-2xl border border-white/10 flex flex-col items-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
           <div className="flex flex-wrap gap-2 mb-8 justify-center">
             {FOCUS_PRESETS.map((p, i) => (
@@ -1330,17 +1311,16 @@ function FocusView({ sessions, focusFinish, accent }: any) {
           </div>
         </div>
 
-        {/* SPOTIFY + SYNTH */}
         <div className="space-y-4">
           <div className="p-5 rounded-2xl border border-white/10 space-y-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
             <h4 className="text-xs font-black uppercase text-green-400 flex items-center gap-2">
               <Music size={14} /> Spotify Focus Radio
             </h4>
-            <p className="text-[10px] text-gray-500">Pick a playlist. If one fails, choose another. You can also paste any Spotify link.</p>
+            <p className="text-[10px] text-gray-500">Click X on any suggestion to hide it. Add custom Spotify links below.</p>
 
             <div className="flex gap-2">
               <input value={customUrl} onChange={e => setCustomUrl(e.target.value)}
-                placeholder="Paste Spotify playlist/album/track link..."
+                placeholder="Paste Spotify link..."
                 className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none" />
               <button onClick={addSpotify} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs flex items-center gap-1">
                 <Plus size={12} /> Add
@@ -1355,17 +1335,49 @@ function FocusView({ sessions, focusFinish, accent }: any) {
                     {list.map(p => {
                       const on = activeSpotify === p.id;
                       return (
-                        <button key={p.id} onClick={() => setActiveSpotify(on ? null : p.id)}
-                          className="p-2 rounded-xl text-left text-xs border transition-all"
-                          style={on ? { background: `${accent}15`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#aaa' }}>
-                          <div className="font-bold truncate">{p.name}</div>
-                        </button>
+                        <div
+                          key={p.id}
+                          className="relative group rounded-xl border text-left text-xs transition-all overflow-hidden"
+                          style={on
+                            ? { background: `${accent}15`, borderColor: `${accent}40`, color: accent }
+                            : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#aaa' }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setActiveSpotify(on ? null : p.id)}
+                            className="w-full p-2 pr-8 text-left"
+                          >
+                            <div className="font-bold truncate">{p.name}</div>
+                          </button>
+                          <button
+                            type="button"
+                            title="Remove this suggestion"
+                            aria-label={`Remove ${p.name}`}
+                            onClick={(e) => { e.stopPropagation(); hidePlaylist(p.id); }}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-lg flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/15 opacity-70 group-hover:opacity-100 transition-all"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
               ))}
+              {visiblePlaylists.length === 0 && (
+                <p className="text-center text-xs text-gray-500 italic py-4">All suggestions hidden. Restore them below or add your own.</p>
+              )}
             </div>
+
+            {hiddenPlaylists.length > 0 && (
+              <button
+                type="button"
+                onClick={restoreAllPlaylists}
+                className="w-full py-2 rounded-xl text-[11px] font-bold bg-white/5 hover:bg-white/10 text-gray-400 flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={12} /> Restore {hiddenPlaylists.length} hidden suggestion{hiddenPlaylists.length > 1 ? 's' : ''}
+              </button>
+            )}
 
             {active && (
               <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40">
@@ -1428,6 +1440,9 @@ function FocusView({ sessions, focusFinish, accent }: any) {
   );
 }
 
+// ============================================
+// LOOT LOCKER
+// ============================================
 function LootView({ hero, inventory, equipped, buyItem, equipItem, accent }: any) {
   const [cat, setCat] = useState<ShopType>('title');
   const items = SHOP.filter(i => i.type === cat);
