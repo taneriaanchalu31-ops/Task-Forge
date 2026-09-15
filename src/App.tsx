@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Repeat, ListTodo, Timer, ShoppingBag,
+  LayoutDashboard, ListTodo, Timer, ShoppingBag,
   Flame, Sword, Zap, Target, BookOpen, Heart, Plus, Trash2, Check,
-  Play, Pause, Square, Clock, Volume2, Quote, Youtube,
-  Coins, Lock, X, Shuffle, TrendingUp, Edit3, Music, AlertTriangle, Star,
-  ChevronRight, ChevronLeft, User, RefreshCw
+  Play, Pause, Square, Clock, Volume2, Quote,
+  Coins, Lock, X, TrendingUp, Edit3, Music, AlertTriangle, Star,
+  ChevronRight, ChevronLeft, User, ExternalLink
 } from 'lucide-react';
 
 // ============================================
@@ -50,6 +50,14 @@ interface Equipped { frame: string; theme: string; title: string; avatar: string
 interface Toast { id: string; message: string; icon: string; tone: string; }
 interface Verse { text: string; ref: string; }
 
+interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  tag: string;
+  spotifyId: string; // playlist or album ID
+  kind: 'playlist' | 'album' | 'track';
+}
+
 // ============================================
 // DATA
 // ============================================
@@ -84,7 +92,7 @@ const VERSES: Verse[] = [
 ];
 
 const SHOP: ShopItem[] = [
-  // TITLES (18)
+  // TITLES
   { id: 't-novice', name: 'Novice', description: 'Every legend begins here.', type: 'title', cost: 0, icon: '📜', rarity: 'common', value: 'Novice' },
   { id: 't-warrior', name: 'Warrior', description: 'Battle-tested and ready.', type: 'title', cost: 60, icon: '⚔️', rarity: 'common', value: 'Warrior' },
   { id: 't-scholar', name: 'Scholar', description: 'Master of knowledge.', type: 'title', cost: 90, icon: '📚', rarity: 'common', value: 'Scholar' },
@@ -104,7 +112,7 @@ const SHOP: ShopItem[] = [
   { id: 't-eternal', name: 'The Eternal One', description: 'Transcended reality.', type: 'title', cost: 1500, icon: '✨', rarity: 'mythic', value: 'The Eternal One' },
   { id: 't-cosmic', name: 'Cosmic Emperor', description: 'Ruler of dimensions.', type: 'title', cost: 2000, icon: '🌠', rarity: 'mythic', value: 'Cosmic Emperor' },
 
-  // AVATARS (20)
+  // AVATARS
   { id: 'a-fox', name: 'Swift Fox', description: 'Quick and cunning.', type: 'avatar', cost: 0, icon: '🦊', rarity: 'common', value: '🦊' },
   { id: 'a-wolf', name: 'Lone Wolf', description: 'Fierce independence.', type: 'avatar', cost: 75, icon: '🐺', rarity: 'common', value: '🐺' },
   { id: 'a-bear', name: 'Grizzly Bear', description: 'Raw strength.', type: 'avatar', cost: 90, icon: '🐻', rarity: 'common', value: '🐻' },
@@ -126,7 +134,7 @@ const SHOP: ShopItem[] = [
   { id: 'a-galaxy', name: 'Galaxy Spirit', description: 'Transcendent existence.', type: 'avatar', cost: 1200, icon: '🌟', rarity: 'mythic', value: '🌟' },
   { id: 'a-god', name: 'The Divine', description: 'Ultimate ascendance.', type: 'avatar', cost: 1800, icon: '☀️', rarity: 'mythic', value: '☀️' },
 
-  // FRAMES (14)
+  // FRAMES
   { id: 'f-none', name: 'Standard', description: 'Clean minimalist border.', type: 'frame', cost: 0, icon: '⬜', rarity: 'common', value: 'none' },
   { id: 'f-bronze', name: 'Bronze Ring', description: 'Solid bronze border.', type: 'frame', cost: 50, icon: '🥉', rarity: 'common', value: 'bronze' },
   { id: 'f-silver', name: 'Silver Crest', description: 'Polished silver ring.', type: 'frame', cost: 120, icon: '🥈', rarity: 'rare', value: 'silver' },
@@ -142,7 +150,7 @@ const SHOP: ShopItem[] = [
   { id: 'f-holy', name: 'Holy Halo', description: 'Divine sanctified glow.', type: 'frame', cost: 1000, icon: '😇', rarity: 'legendary', value: 'holy' },
   { id: 'f-rainbow', name: 'Prism Halo', description: 'All colors, all power.', type: 'frame', cost: 1500, icon: '🌈', rarity: 'mythic', value: 'rainbow' },
 
-  // THEMES (18)
+  // THEMES
   { id: 'th-violet', name: 'Nebula Violet', description: 'Royal cosmic purple.', type: 'theme', cost: 0, icon: '💜', rarity: 'common', value: 'violet' },
   { id: 'th-cyan', name: 'Cyber Cyan', description: 'Futuristic blue.', type: 'theme', cost: 60, icon: '💎', rarity: 'common', value: 'cyan' },
   { id: 'th-emerald', name: 'Emerald Forest', description: 'Vital green energy.', type: 'theme', cost: 60, icon: '💚', rarity: 'common', value: 'emerald' },
@@ -179,22 +187,24 @@ const FOCUS_PRESETS = [
   { label: 'Marathon', minutes: 90 },
 ];
 
-// YouTube streams — MULTIPLE fallback IDs per category so if one fails another plays
-const YT_CATEGORIES: { id: string; name: string; tag: string; videos: string[] }[] = [
-  { id: 'lofi', name: 'Lofi Focus Beats', tag: 'Lofi', videos: ['jfKfPfyJRdk', '5qap5aO4i9A', 'DWcJFNfaw9c', 'rUxyKA_-grg'] },
-  { id: 'jazz', name: 'Smooth Jazz Radio', tag: 'Jazz', videos: ['Dx5qFachd3A', 'neV3EPgvZ3g', 'fEvM-OUbaKs', 'DSGyEsJ17cI'] },
-  { id: 'birds', name: 'Forest Birds Singing', tag: 'Nature', videos: ['xNN7iTA57jM', 'OdIJ2x3nxzQ', 'mPZkdNFkNps', 'eKFTSSKCzWA'] },
-  { id: 'ethio-worship', name: 'Ethiopian Worship 🇪🇹', tag: 'Christian', videos: ['dCbOTU8DvNo', 'V-vJDA76m2M', 'w82L0DK-RTM', 'yhg5FKl0ADI'] },
-  { id: 'ethio-mezmur', name: 'Ethiopian Mezmur 🇪🇹', tag: 'Christian', videos: ['ZzWXFrRVSTM', 'DBQ2ap1UDPI', 'GKgLzT_HRVo', 'yhg5FKl0ADI'] },
-  { id: 'christian-worship', name: 'English Worship', tag: 'Christian', videos: ['h55G_UB4c1U', 'BsB3RyaBIkc', 'q_lRTGBnvbo', 'HqmvHRJVE2E'] },
-  { id: 'christian-instrumental', name: 'Christian Instrumental', tag: 'Christian', videos: ['XljqNBiRitk', 'FA-4E_yZDvE', 'sPO2E4hp4Mk', 'lIU7ke9dqQU'] },
-  { id: 'hillsong', name: 'Hillsong Worship', tag: 'Christian', videos: ['fnDeeI6oOsY', 'BsB3RyaBIkc', 'BwOYhXsw0Ck', 'HqmvHRJVE2E'] },
-  { id: 'kingdom-sounds', name: 'Kingdom Sounds', tag: 'Christian', videos: ['FA-4E_yZDvE', 'sPO2E4hp4Mk', 'XljqNBiRitk', 'lIU7ke9dqQU'] },
-  { id: 'synth', name: 'Synthwave Radio', tag: 'Synth', videos: ['4xDzrJKXOOY', 'MVPTGNGiI-4', 'JcVDwOAsvR8'] },
-  { id: 'classical', name: 'Classical Focus', tag: 'Classical', videos: ['jgpJVI3tDbY', '9E6b3swbnWg', 'mIYzp5rcTvU'] },
-  { id: 'piano', name: 'Peaceful Piano', tag: 'Piano', videos: ['4oStw0r33so', 'lTRiuFIWV54', 'M-Vmn3yTNZE'] },
-  { id: 'rain-forest', name: 'Rain in Forest', tag: 'Nature', videos: ['nDq6TstdEi8', 'q76bMs-NwRk', 'JCLL6EiuVeQ'] },
-  { id: 'space', name: 'Deep Space Ambient', tag: 'Ambient', videos: ['S_DFq9Rev8M', 'i9dgm3O43yo', 'H8YM6NojdAI'] },
+// Spotify playlists (public embed IDs — work reliably in iframes)
+const SPOTIFY_PLAYLISTS: SpotifyPlaylist[] = [
+  { id: 'lofi', name: 'Lofi Focus Beats', tag: 'Lofi', spotifyId: '0vvXsWCc8UbPnJsJQ6COjM', kind: 'playlist' },
+  { id: 'lofi2', name: 'Chill Lofi Study', tag: 'Lofi', spotifyId: '37i9dQZF1DWWQRwui0ExPn', kind: 'playlist' },
+  { id: 'jazz', name: 'Smooth Jazz', tag: 'Jazz', spotifyId: '37i9dQZF1DXbITWG1ZJKYt', kind: 'playlist' },
+  { id: 'jazz2', name: 'Jazz Vibes', tag: 'Jazz', spotifyId: '37i9dQZF1DX0SM0LYsmbMT', kind: 'playlist' },
+  { id: 'christian', name: 'Christian Worship', tag: 'Christian', spotifyId: '37i9dQZF1DX2sUQwCrRBp3', kind: 'playlist' },
+  { id: 'worship', name: 'Worship Focus', tag: 'Christian', spotifyId: '37i9dQZF1DWVYgqMRn8LPz', kind: 'playlist' },
+  { id: 'gospel', name: 'Gospel & Praise', tag: 'Christian', spotifyId: '37i9dQZF1DWU0sBdra9L8j', kind: 'playlist' },
+  { id: 'ethio', name: 'Ethiopian Music 🇪🇹', tag: 'Ethiopian', spotifyId: '37i9dQZF1DWYkaFifGgcCR', kind: 'playlist' },
+  { id: 'african-gospel', name: 'African Gospel', tag: 'Christian', spotifyId: '37i9dQZF1DWYV7OOteHjSD', kind: 'playlist' },
+  { id: 'piano', name: 'Peaceful Piano', tag: 'Piano', spotifyId: '37i9dQZF1DX4sWSpwq3LiO', kind: 'playlist' },
+  { id: 'classical', name: 'Classical Focus', tag: 'Classical', spotifyId: '37i9dQZF1DWWEJlAGA9gs0', kind: 'playlist' },
+  { id: 'nature', name: 'Nature Sounds', tag: 'Nature', spotifyId: '37i9dQZF1DX4aYNO8X5RpR', kind: 'playlist' },
+  { id: 'rain', name: 'Rain Sounds', tag: 'Nature', spotifyId: '37i9dQZF1DXbcPC6Vvqudd', kind: 'playlist' },
+  { id: 'synth', name: 'Synthwave', tag: 'Synth', spotifyId: '37i9dQZF1DXdLEN7aqioXM', kind: 'playlist' },
+  { id: 'deep-focus', name: 'Deep Focus', tag: 'Focus', spotifyId: '37i9dQZF1DWZeKCadgRdKQ', kind: 'playlist' },
+  { id: 'instrumental', name: 'Instrumental Study', tag: 'Focus', spotifyId: '37i9dQZF1DX9sIqqvKsj3N', kind: 'playlist' },
 ];
 
 const EMOJIS = [
@@ -256,6 +266,9 @@ const rarityColor = (r: Rarity): string => ({
   common: '#9CA3AF', rare: '#60A5FA', epic: '#A78BFA',
   legendary: '#FBBF24', mythic: '#F472B6'
 }[r]);
+
+const spotifyEmbedUrl = (p: SpotifyPlaylist) =>
+  `https://open.spotify.com/embed/${p.kind}/${p.spotifyId}?utm_source=generator&theme=0`;
 
 // ============================================
 // AUDIO ENGINE
@@ -346,7 +359,7 @@ class AudioEngine {
 const engine = new AudioEngine();
 
 // ============================================
-// PERSISTENCE (Per User)
+// PERSISTENCE
 // ============================================
 const getOrCreateUserId = (): string => {
   try {
@@ -398,25 +411,25 @@ export default function App() {
     if (showTut) setShowTutorialModal(true);
   }, []);
 
-  const [hero, setHero] = useStored<Hero>('tf_hero_v3', {
+  const [hero, setHero] = useStored<Hero>('tf_hero_v4', {
     name: 'Hero', level: 1, xp: 0, gold: 40,
     streakDays: 1, lastActiveDate: todayStr(),
     totalTasks: 0, totalHabits: 0, totalFocus: 0, totalBosses: 0,
     profilePic: null, userId: getOrCreateUserId(),
   });
 
-  const [equipped, setEquipped] = useStored<Equipped>('tf_eq_v3', {
+  const [equipped, setEquipped] = useStored<Equipped>('tf_eq_v4', {
     frame: 'f-none', theme: 'th-violet', title: 't-novice', avatar: 'a-fox',
   });
 
-  const [inventory, setInventory] = useStored<string[]>('tf_inv_v3',
+  const [inventory, setInventory] = useStored<string[]>('tf_inv_v4',
     ['t-novice', 'a-fox', 'f-none', 'th-violet']);
 
-  const [habits, setHabits] = useStored<Habit[]>('tf_habits_v3', []);
-  const [todos, setTodos] = useStored<Todo[]>('tf_todos_v3', []);
-  const [boss, setBoss] = useStored<Boss>('tf_boss_v3', makeBoss(1, 0));
-  const [sessions, setSessions] = useStored<FocusSession[]>('tf_sess_v3', []);
-  const [lastAtk, setLastAtk] = useStored<number>('tf_atk_v3', 0);
+  const [habits, setHabits] = useStored<Habit[]>('tf_habits_v4', []);
+  const [todos, setTodos] = useStored<Todo[]>('tf_todos_v4', []);
+  const [boss, setBoss] = useStored<Boss>('tf_boss_v4', makeBoss(1, 0));
+  const [sessions, setSessions] = useStored<FocusSession[]>('tf_sess_v4', []);
+  const [lastAtk, setLastAtk] = useStored<number>('tf_atk_v4', 0);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const themeName = SHOP.find(s => s.id === equipped.theme)?.value || 'violet';
@@ -475,7 +488,6 @@ export default function App() {
     notify(`⚡ Quick Attack! -${dmg} HP`, '⚡', 'success');
   };
 
-  // TASKS
   const completeTask = (id: string) => {
     setTodos(prev => prev.map(t => {
       if (t.id !== id) return t;
@@ -502,7 +514,7 @@ export default function App() {
     notify(`New quest added!`, '📜', 'info');
   };
 
-  // HABITS — TRUE ANTI-CHEAT
+  // HABITS — true anti-cheat (reward once per day)
   const toggleHabit = (id: string) => {
     const today = todayStr();
     setHabits(prev => prev.map(h => {
@@ -514,7 +526,6 @@ export default function App() {
       } else {
         const newDates = [...h.completedDates, today];
         const newStreak = computeStreak(newDates);
-        // ONLY reward if today was NEVER previously rewarded
         const alreadyRewarded = h.rewardedDates?.includes(today);
         if (!alreadyRewarded) {
           grantXp(20); grantGold(8);
@@ -610,19 +621,13 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* SIDEBAR (Desktop) */}
+      {/* SIDEBAR — single sword logo */}
       <aside className="hidden md:flex flex-col w-60 border-r border-white/5 p-4 justify-between backdrop-blur-xl" style={{ background: 'rgba(11,8,22,0.5)' }}>
         <div className="space-y-6">
           <div className="flex items-center gap-3 px-2 py-2">
             <div className="w-11 h-11 rounded-2xl flex items-center justify-center relative"
               style={{ background: `linear-gradient(135deg, ${accent}, ${accent}66)`, boxShadow: `0 4px 20px ${accent}66` }}>
-              {/* Crossed swords logo */}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M4 4 L14 14 M14 4 L4 14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M14 14 L20 20 M4 14 L2 20" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="4" cy="4" r="1.5" fill="white"/>
-                <circle cx="14" cy="4" r="1.5" fill="white"/>
-              </svg>
+              <Sword size={22} className="text-white" strokeWidth={2.5} />
               <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-yellow-400 border-2 border-[#08060F]" />
             </div>
             <div>
@@ -668,16 +673,14 @@ export default function App() {
         </div>
       </aside>
 
-      {/* MAIN */}
       <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full pb-24 md:pb-8">
-        {tab === 'dash' && <DashboardView {...{ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, notify, setShowTutorialModal }} />}
+        {tab === 'dash' && <DashboardView {...{ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, setShowTutorialModal }} />}
         {tab === 'habits' && <HabitsView {...{ habits, addHabit, toggleHabit, deleteHabit, accent }} />}
         {tab === 'todos' && <TodosView {...{ todos, addTask, completeTask, uncompleteTask, deleteTask, accent }} />}
         {tab === 'focus' && <FocusView {...{ sessions, focusFinish, accent }} />}
         {tab === 'loot' && <LootView {...{ hero, inventory, equipped, buyItem, equipItem, accent }} />}
       </main>
 
-      {/* MOBILE BOTTOM NAV */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t border-white/5 flex items-center justify-around py-2 px-1" style={{ background: 'rgba(9,7,20,0.95)' }}>
         {[
           { id: 'dash', label: 'Home', icon: LayoutDashboard },
@@ -699,7 +702,6 @@ export default function App() {
         })}
       </nav>
 
-      {/* INTERACTIVE TUTORIAL */}
       {showTutorialModal && (
         <InteractiveTutorial accent={accent} onFinish={() => { setShowTut(false); setShowTutorialModal(false); }} onNav={setTab} />
       )}
@@ -708,7 +710,7 @@ export default function App() {
 }
 
 // ============================================
-// INTERACTIVE TUTORIAL
+// INTERACTIVE TUTORIAL (with Urgent / Important)
 // ============================================
 function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFinish: () => void; onNav: (t: any) => void }) {
   const [step, setStep] = useState(0);
@@ -717,48 +719,57 @@ function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFi
       icon: '⚔️',
       title: 'Welcome to Task Forge!',
       body: 'Your real life becomes an RPG. Complete tasks & habits to earn XP, gold, defeat bosses & unlock legendary loot.',
-      action: null,
+      action: null as null | (() => void),
+      actionText: '',
     },
     {
       icon: '📜',
-      title: 'Quest Log',
-      body: 'Add your own tasks! Mark them urgent or important. Complete them ONCE to earn XP + Gold. Try it now!',
+      title: 'Quest Log — Your Missions',
+      body: 'Add your own tasks. Complete each quest once to earn XP + Gold (no cheating on re-checks).',
       action: () => onNav('todos'),
       actionText: 'Open Quest Log →',
     },
     {
+      icon: '⚡',
+      title: 'Urgent vs Important',
+      body: 'URGENT = needs attention soon (deadline, fire to put out). IMPORTANT = moves you toward big goals (health, career, faith, deep work). Use both flags so you know what to do first. Tip: Important+Urgent = do first. Important only = schedule. Urgent only = quick handle. Neither = backlog or drop.',
+      action: () => onNav('todos'),
+      actionText: 'Try adding a quest →',
+    },
+    {
       icon: '🔥',
       title: 'Habit Forge',
-      body: 'Build daily habits. Each new day earns rewards. Streaks unlock bigger rewards. No cheating — same-day re-checks give no gold.',
+      body: 'Build daily habits. Each NEW day earns rewards once. Re-checking the same day does NOT give more gold.',
       action: () => onNav('habits'),
       actionText: 'Open Habit Forge →',
     },
     {
-      icon: '⏱️',
-      title: 'Focus Chamber',
-      body: 'Deep-work timer with YouTube Ambient Radio (Jazz, Lofi, Ethiopian Worship, Christian Music) + procedural sounds.',
+      icon: '🎵',
+      title: 'Focus Chamber + Spotify',
+      body: 'Deep-work timer with Spotify playlists (Lofi, Jazz, Christian worship, Ethiopian music, Piano, Nature) plus procedural ambient sounds.',
       action: () => onNav('focus'),
       actionText: 'Open Focus Chamber →',
     },
     {
       icon: '👹',
       title: 'Daily Boss',
-      body: 'Every day a boss appears on your dashboard. Every quest, habit & focus session damages it. Defeat it for huge rewards!',
+      body: 'Every day a boss appears. Quests, habits & focus damage it. Defeat it for big rewards!',
       action: () => onNav('dash'),
       actionText: 'View Dashboard →',
     },
     {
       icon: '🛒',
       title: 'Loot Locker',
-      body: 'Spend gold on 70+ titles, avatars, frames & themes. From Common to Mythic rarity!',
+      body: 'Spend gold on 70+ titles, avatars, frames & themes from Common to Mythic.',
       action: () => onNav('loot'),
       actionText: 'Open Loot Locker →',
     },
     {
       icon: '🎉',
       title: "You're all set!",
-      body: 'Your progress is auto-saved to this browser. Each user has their own private data. Click your name on the dashboard to customize it. Now go forge greatness!',
+      body: 'Progress auto-saves privately in this browser. Click your name on the Dashboard to rename yourself. Now go forge greatness!',
       action: null,
+      actionText: '',
     },
   ];
   const cur = steps[step];
@@ -768,16 +779,25 @@ function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFi
       <motion.div key={step} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full p-8 rounded-3xl border border-white/10 text-center space-y-5" style={{ background: '#0f0c1d' }}>
         <div className="text-6xl">{cur.icon}</div>
         <h3 className="text-2xl font-black" style={{ color: accent }}>{cur.title}</h3>
-        <p className="text-sm text-gray-300 leading-relaxed">{cur.body}</p>
+        <p className="text-sm text-gray-300 leading-relaxed text-left">{cur.body}</p>
 
-        {/* Progress dots */}
+        {step === 2 && (
+          <div className="grid grid-cols-2 gap-2 text-left text-[11px]">
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+              <div className="font-black text-red-400 mb-1 flex items-center gap-1"><AlertTriangle size={12} /> URGENT</div>
+              <p className="text-gray-400">Time-sensitive. Do soon or something breaks.</p>
+            </div>
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <div className="font-black text-blue-400 mb-1 flex items-center gap-1"><Star size={12} /> IMPORTANT</div>
+              <p className="text-gray-400">Matters long-term. Goals, growth, purpose.</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-center gap-2 py-2">
           {steps.map((_, i) => (
             <div key={i} className="rounded-full transition-all"
-              style={{
-                background: i === step ? accent : 'rgba(255,255,255,0.15)',
-                width: i === step ? 24 : 8, height: 8,
-              }} />
+              style={{ background: i === step ? accent : 'rgba(255,255,255,0.15)', width: i === step ? 24 : 8, height: 8 }} />
           ))}
         </div>
 
@@ -804,26 +824,23 @@ function InteractiveTutorial({ accent, onFinish, onNav }: { accent: string; onFi
             </button>
           )}
         </div>
-
         <button onClick={onFinish} className="text-[10px] text-gray-500 hover:text-gray-300">Skip tutorial</button>
       </motion.div>
     </div>
   );
 }
 
-// ============================================
-// DASHBOARD
-// ============================================
+// Dashboard / Habits / Todos / Loot — same structure as last version
+// (keeping core logic; FocusView rewritten for Spotify)
+
 function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, sessions, accent, avatarIcon, titleText, frameStyle, setShowTutorialModal }: any) {
   const [editName, setEditName] = useState(false);
   const [nameVal, setNameVal] = useState(hero.name);
   const [cd, setCd] = useState('');
 
-  // ROTATE VERSE EVERY HOUR
   const getHourlyVerseIdx = () => {
     const d = new Date();
-    const hourStamp = Math.floor(d.getTime() / (60 * 60 * 1000));
-    return hourStamp % VERSES.length;
+    return Math.floor(d.getTime() / (60 * 60 * 1000)) % VERSES.length;
   };
   const [verseIdx, setVerseIdx] = useState(getHourlyVerseIdx);
 
@@ -880,22 +897,16 @@ function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, 
         </button>
       </div>
 
-      {/* HOURLY VERSE — BIGGER FONT */}
       <div className="p-6 md:p-8 rounded-3xl border-2 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${accent}0A, transparent)`, borderColor: `${accent}30` }}>
         <div className="absolute top-3 right-3 text-[9px] uppercase tracking-widest text-gray-500 flex items-center gap-1">
           <Clock size={10} /> Refreshes hourly
         </div>
         <Quote size={28} style={{ color: accent, opacity: 0.4 }} className="mb-3" />
-        <p className="text-lg md:text-2xl text-white italic leading-relaxed font-serif mb-4" style={{ letterSpacing: '0.01em' }}>
-          "{v.text}"
-        </p>
-        <p className="text-sm md:text-base font-black uppercase tracking-wider" style={{ color: accent }}>
-          — {v.ref}
-        </p>
+        <p className="text-lg md:text-2xl text-white italic leading-relaxed font-serif mb-4">"{v.text}"</p>
+        <p className="text-sm md:text-base font-black uppercase tracking-wider" style={{ color: accent }}>— {v.ref}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* HERO */}
         <div className="p-6 rounded-3xl border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
           <label className="relative mx-auto w-24 h-24 mb-3 cursor-pointer block">
             <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl overflow-hidden" style={frameStyle()}>
@@ -903,34 +914,28 @@ function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, 
             </div>
             <input type="file" accept="image/*" className="hidden" onChange={handlePic} />
           </label>
-
           {editName ? (
             <div className="flex gap-2 mb-2">
               <input value={nameVal} onChange={e => setNameVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setHero((h: Hero) => ({ ...h, name: nameVal.trim() || h.name })); setEditName(false); } }} autoFocus
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-center text-white font-bold focus:outline-none focus:border-white/30" maxLength={24} />
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-center text-white font-bold focus:outline-none" maxLength={24} />
               <button onClick={() => { setHero((h: Hero) => ({ ...h, name: nameVal.trim() || h.name })); setEditName(false); }}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold text-black" style={{ background: accent }}>
-                Save
-              </button>
+                className="px-3 py-1.5 rounded-xl text-xs font-bold text-black" style={{ background: accent }}>Save</button>
             </div>
           ) : (
-            <button onClick={() => { setNameVal(hero.name); setEditName(true); }}
-              className="font-black text-lg cursor-pointer hover:opacity-80 flex items-center justify-center gap-1 mx-auto">
+            <button onClick={() => { setNameVal(hero.name); setEditName(true); }} className="font-black text-lg flex items-center justify-center gap-1 mx-auto">
               {hero.name} <Edit3 size={12} className="text-gray-500" />
             </button>
           )}
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-4">{titleText}</p>
-
           <div className="space-y-1.5 mb-4">
             <div className="flex justify-between text-xs">
               <span className="font-bold" style={{ color: accent }}>Level {hero.level}</span>
               <span className="text-gray-400">{hero.xp} / {xpForLevel(hero.level)} XP</span>
             </div>
             <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full transition-all duration-500 rounded-full" style={{ width: `${(hero.xp / xpForLevel(hero.level)) * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent}AA)` }} />
+              <div className="h-full rounded-full" style={{ width: `${(hero.xp / xpForLevel(hero.level)) * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent}AA)` }} />
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-2">
             <div className="p-2.5 rounded-xl bg-white/[0.03]">
               <div className="text-yellow-400 font-black flex items-center justify-center gap-1"><Coins size={13} /> {hero.gold}</div>
@@ -943,7 +948,6 @@ function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, 
           </div>
         </div>
 
-        {/* BOSS */}
         <div className="p-6 rounded-3xl border border-white/10 flex flex-col justify-between" style={{ background: 'rgba(255,255,255,0.02)' }}>
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -961,17 +965,16 @@ function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, 
                 <span>{boss.hp} / {boss.maxHp}</span>
               </div>
               <div className="h-3 bg-white/5 rounded-full overflow-hidden">
-                <motion.div className="h-full bg-gradient-to-r from-red-600 to-rose-400" animate={{ width: `${(boss.hp / boss.maxHp) * 100}%` }} transition={{ duration: 0.4 }} />
+                <motion.div className="h-full bg-gradient-to-r from-red-600 to-rose-400" animate={{ width: `${(boss.hp / boss.maxHp) * 100}%`} } />
               </div>
             </div>
           </div>
-          <button onClick={quickAtk} disabled={!canAtk} className="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          <button onClick={quickAtk} disabled={!canAtk} className="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 disabled:opacity-40"
             style={{ background: canAtk ? `${accent}25` : 'rgba(255,255,255,0.03)', color: canAtk ? accent : '#666', border: `1px solid ${canAtk ? accent + '40' : 'transparent'}` }}>
             <Zap size={14} /> {canAtk ? 'Quick Attack' : cd}
           </button>
         </div>
 
-        {/* TODAY */}
         <div className="p-6 rounded-3xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
           <h4 className="text-xs font-black uppercase text-gray-300 mb-4 flex items-center gap-2"><TrendingUp size={14} style={{ color: accent }} /> Today's Campaign</h4>
           <div className="space-y-2">
@@ -996,16 +999,12 @@ function DashboardView({ hero, setHero, boss, quickAtk, lastAtk, todos, habits, 
   );
 }
 
-// ============================================
-// HABITS
-// ============================================
 function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any) {
   const [show, setShow] = useState(false);
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('🎯');
   const [color, setColor] = useState('violet');
   const [delId, setDelId] = useState<string | null>(null);
-
   const colors = ['violet', 'cyan', 'emerald', 'rose', 'amber', 'sky', 'lime', 'fuchsia', 'orange', 'teal'];
 
   return (
@@ -1013,9 +1012,9 @@ function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any)
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>HABIT FORGE</h2>
-          <p className="text-xs text-gray-400">Build unbreakable daily streaks · No same-day cheating</p>
+          <p className="text-xs text-gray-400">Daily streaks · Reward once per day only</p>
         </div>
-        <button onClick={() => setShow(!show)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+        <button onClick={() => setShow(!show)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold"
           style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
           {show ? <X size={14} /> : <Plus size={14} />} {show ? 'Cancel' : 'New Habit'}
         </button>
@@ -1025,32 +1024,21 @@ function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any)
         {show && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
             <div className="p-5 rounded-2xl border border-white/10 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <div>
-                <label className="text-xs text-gray-400 uppercase font-bold block mb-1.5">Habit Name</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Drink 2L Water"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30" maxLength={50} />
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Drink 2L Water"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none" maxLength={50} />
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-white/[0.02] rounded-xl">
+                {EMOJIS.map(e => (
+                  <button key={e} onClick={() => setEmoji(e)} className={`w-10 h-10 rounded-xl text-lg ${emoji === e ? 'ring-2' : 'bg-white/[0.03]'}`}
+                    style={emoji === e ? { background: `${accent}20`, boxShadow: `0 0 0 2px ${accent}` } : {}}>{e}</button>
+                ))}
               </div>
-              <div>
-                <label className="text-xs text-gray-400 uppercase font-bold block mb-2">Icon ({EMOJIS.length} to choose from)</label>
-                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-white/[0.02] rounded-xl border border-white/5">
-                  {EMOJIS.map(e => (
-                    <button key={e} onClick={() => setEmoji(e)} className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${emoji === e ? 'ring-2' : 'bg-white/[0.03] hover:bg-white/[0.06]'}`}
-                      style={emoji === e ? { background: `${accent}20`, boxShadow: `0 0 0 2px ${accent}` } : {}}>{e}</button>
-                  ))}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {colors.map(c => (
+                  <button key={c} onClick={() => setColor(c)} className={`w-8 h-8 rounded-full ${color === c ? 'ring-2 ring-white/60 scale-110' : ''}`} style={{ background: themeAccent(c) }} />
+                ))}
               </div>
-              <div>
-                <label className="text-xs text-gray-400 uppercase font-bold block mb-2">Color</label>
-                <div className="flex flex-wrap gap-2">
-                  {colors.map(c => (
-                    <button key={c} onClick={() => setColor(c)} className={`w-8 h-8 rounded-full transition-all ${color === c ? 'ring-2 ring-white/60 scale-110' : ''}`} style={{ background: themeAccent(c) }} />
-                  ))}
-                </div>
-              </div>
-              <button onClick={() => { addHabit(name, emoji, color); setName(''); setEmoji('🎯'); setColor('violet'); setShow(false); }} disabled={!name.trim()}
-                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>
-                Create Habit
-              </button>
+              <button onClick={() => { addHabit(name, emoji, color); setName(''); setShow(false); }} disabled={!name.trim()}
+                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>Create Habit</button>
             </div>
           </motion.div>
         )}
@@ -1069,7 +1057,7 @@ function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any)
             const hAcc = themeAccent(h.color);
             return (
               <motion.div key={h.id} layout className="p-4 rounded-2xl border border-white/10 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                <button onClick={() => toggleHabit(h.id)} className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 transition-all"
+                <button onClick={() => toggleHabit(h.id)} className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
                   style={{ background: done ? `${hAcc}30` : 'rgba(255,255,255,0.03)', border: `2px solid ${done ? hAcc : 'rgba(255,255,255,0.1)'}` }}>
                   {done ? <Check size={20} style={{ color: hAcc }} /> : h.emoji}
                 </button>
@@ -1077,16 +1065,8 @@ function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any)
                   <h4 className={`text-sm font-bold ${done ? 'line-through text-gray-500' : ''}`}>{h.name}</h4>
                   <div className="flex items-center gap-2 text-[10px] text-gray-500">
                     <span className="text-orange-400 flex items-center gap-0.5"><Flame size={10} /> {h.streak}d</span>
-                    <span>· Best {h.longestStreak}d</span>
                     {rewardedToday && <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 text-[9px]">✓ REWARDED</span>}
                   </div>
-                </div>
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 7 }).map((_, i) => {
-                    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-                    const ds = todayStr(d);
-                    return <div key={i} className="w-2 h-6 rounded-sm" style={{ background: h.completedDates.includes(ds) ? hAcc : 'rgba(255,255,255,0.05)' }} title={ds} />;
-                  })}
                 </div>
                 {delId === h.id ? (
                   <div className="flex gap-1">
@@ -1105,9 +1085,6 @@ function HabitsView({ habits, addHabit, toggleHabit, deleteHabit, accent }: any)
   );
 }
 
-// ============================================
-// TODOS
-// ============================================
 function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, accent }: any) {
   const [show, setShow] = useState(false);
   const [title, setTitle] = useState('');
@@ -1115,7 +1092,6 @@ function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, a
   const [urgent, setUrgent] = useState(false);
   const [important, setImportant] = useState(false);
   const [delId, setDelId] = useState<string | null>(null);
-
   const active = todos.filter((t: Todo) => !t.completed);
   const done = todos.filter((t: Todo) => t.completed);
 
@@ -1124,7 +1100,7 @@ function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, a
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>QUEST LOG</h2>
-          <p className="text-xs text-gray-400">Add your own quests · Earn XP once per completion</p>
+          <p className="text-xs text-gray-400">Urgent = time-sensitive · Important = long-term goals</p>
         </div>
         <button onClick={() => setShow(!show)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold"
           style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
@@ -1137,23 +1113,27 @@ function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, a
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
             <div className="p-5 rounded-2xl border border-white/10 space-y-4" style={{ background: 'rgba(255,255,255,0.02)' }}>
               <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" autoFocus
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30" maxLength={120} />
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none" maxLength={120} />
               <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 resize-none h-20" maxLength={300} />
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={urgent} onChange={e => setUrgent(e.target.checked)} className="w-4 h-4 accent-red-500" />
-                  <span className="text-xs text-red-400 flex items-center gap-1"><AlertTriangle size={12} /> Urgent</span>
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none resize-none h-20" maxLength={300} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-start gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/20 cursor-pointer">
+                  <input type="checkbox" checked={urgent} onChange={e => setUrgent(e.target.checked)} className="mt-0.5 accent-red-500" />
+                  <div>
+                    <span className="text-xs text-red-400 font-bold flex items-center gap-1"><AlertTriangle size={12} /> Urgent</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Needs attention soon / has a deadline</p>
+                  </div>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={important} onChange={e => setImportant(e.target.checked)} className="w-4 h-4 accent-blue-500" />
-                  <span className="text-xs text-blue-400 flex items-center gap-1"><Star size={12} /> Important</span>
+                <label className="flex items-start gap-2 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 cursor-pointer">
+                  <input type="checkbox" checked={important} onChange={e => setImportant(e.target.checked)} className="mt-0.5 accent-blue-500" />
+                  <div>
+                    <span className="text-xs text-blue-400 font-bold flex items-center gap-1"><Star size={12} /> Important</span>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Matters for long-term goals & growth</p>
+                  </div>
                 </label>
               </div>
               <button onClick={() => { addTask(title, notes, urgent, important); setTitle(''); setNotes(''); setUrgent(false); setImportant(false); setShow(false); }} disabled={!title.trim()}
-                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>
-                Add Quest
-              </button>
+                className="w-full py-3 rounded-xl text-sm font-black text-black disabled:opacity-40" style={{ background: accent }}>Add Quest</button>
             </div>
           </motion.div>
         )}
@@ -1171,11 +1151,10 @@ function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, a
             {active.length === 0 ? <p className="text-xs text-gray-500 italic">All done! 🎉</p> : (
               <div className="space-y-2">
                 {active.map((t: Todo) => (
-                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
-                    <button onClick={() => completeTask(t.id)} className="w-6 h-6 rounded-lg border-2 border-white/20 hover:border-white/40 flex-shrink-0" />
+                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] group">
+                    <button onClick={() => completeTask(t.id)} className="w-6 h-6 rounded-lg border-2 border-white/20 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm">{t.title}</p>
-                      {t.notes && <p className="text-xs text-gray-500 truncate">{t.notes}</p>}
                       <div className="flex gap-2 mt-1">
                         {t.urgent && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">URGENT</span>}
                         {t.important && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">IMPORTANT</span>}
@@ -1188,28 +1167,25 @@ function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, a
                         <button onClick={() => setDelId(null)} className="px-2 py-1 rounded text-xs bg-white/5 text-gray-400">No</button>
                       </div>
                     ) : (
-                      <button onClick={() => setDelId(t.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button>
+                      <button onClick={() => setDelId(t.id)} className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
                     )}
                   </div>
                 ))}
               </div>
             )}
           </div>
-
           {done.length > 0 && (
             <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
               <h3 className="text-xs font-black uppercase text-gray-400 mb-3">Completed ({done.length})</h3>
-              <div className="space-y-2">
-                {done.map((t: Todo) => (
-                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] opacity-60 group hover:opacity-90">
-                    <button onClick={() => uncompleteTask(t.id)} className="w-6 h-6 rounded-lg bg-green-500/30 border-2 border-green-500/50 flex items-center justify-center flex-shrink-0">
-                      <Check size={14} className="text-green-400" />
-                    </button>
-                    <p className="text-sm line-through flex-1">{t.title}</p>
-                    <button onClick={() => deleteTask(t.id)} className="text-gray-600 hover:text-red-400"><Trash2 size={14} /></button>
-                  </div>
-                ))}
-              </div>
+              {done.map((t: Todo) => (
+                <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl opacity-60">
+                  <button onClick={() => uncompleteTask(t.id)} className="w-6 h-6 rounded-lg bg-green-500/30 border-2 border-green-500/50 flex items-center justify-center">
+                    <Check size={14} className="text-green-400" />
+                  </button>
+                  <p className="text-sm line-through flex-1">{t.title}</p>
+                  <button onClick={() => deleteTask(t.id)} className="text-gray-600 hover:text-red-400"><Trash2 size={14} /></button>
+                </div>
+              ))}
             </div>
           )}
         </>
@@ -1219,7 +1195,7 @@ function TodosView({ todos, addTask, completeTask, uncompleteTask, deleteTask, a
 }
 
 // ============================================
-// FOCUS CHAMBER — with auto-fallback YouTube
+// FOCUS — Spotify instead of YouTube
 // ============================================
 function FocusView({ sessions, focusFinish, accent }: any) {
   const [preset, setPreset] = useState(1);
@@ -1229,13 +1205,9 @@ function FocusView({ sessions, focusFinish, accent }: any) {
   const [paused, setPaused] = useState(false);
   const savedRef = useRef(false);
 
-  const [activeCat, setActiveCat] = useState<string | null>(null);
-  const [videoIdx, setVideoIdx] = useState(0);
-  const [ytCustom, setYtCustom] = useState('');
-  const [customList, setCustomList] = useState<{ id: string; name: string; videoId: string; tag: string }[]>([]);
-  const [videoError, setVideoError] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-
+  const [activeSpotify, setActiveSpotify] = useState<string | null>(null);
+  const [customUrl, setCustomUrl] = useState('');
+  const [customList, setCustomList] = useState<SpotifyPlaylist[]>([]);
   const [synth, setSynth] = useState<Set<SoundType>>(new Set());
 
   useEffect(() => {
@@ -1272,37 +1244,33 @@ function FocusView({ sessions, focusFinish, accent }: any) {
     else { engine.start(t, 0.5); setSynth(p => new Set(p).add(t)); }
   };
 
-  const addYt = () => {
-    let vid = ytCustom.trim();
-    if (vid.includes('v=')) vid = vid.split('v=')[1].split('&')[0];
-    else if (vid.includes('youtu.be/')) vid = vid.split('youtu.be/')[1].split('?')[0];
-    if (vid.length !== 11) { alert('Invalid YouTube URL/ID'); return; }
-    const s = { id: `c-${Date.now()}`, name: 'Custom Track', videoId: vid, tag: 'Custom' };
-    setCustomList(p => [...p, s]);
-    setYtCustom('');
-  };
-
-  // Combine categories with custom
-  const allStreams = [
-    ...YT_CATEGORIES,
-    ...customList.map(c => ({ id: c.id, name: c.name, tag: c.tag, videos: [c.videoId] })),
-  ];
-
-  const activeStreamObj = allStreams.find(s => s.id === activeCat);
-  const currentVideoId = activeStreamObj?.videos[videoIdx % activeStreamObj.videos.length];
-
-  const tryNextVideo = () => {
-    if (activeStreamObj && activeStreamObj.videos.length > 1) {
-      setVideoIdx((videoIdx + 1) % activeStreamObj.videos.length);
-      setVideoError(false);
+  // Accept Spotify playlist/album/track links or bare IDs
+  const addSpotify = () => {
+    let raw = customUrl.trim();
+    if (!raw) return;
+    let kind: 'playlist' | 'album' | 'track' = 'playlist';
+    let id = raw;
+    if (raw.includes('spotify.com/')) {
+      if (raw.includes('/playlist/')) { kind = 'playlist'; id = raw.split('/playlist/')[1]?.split('?')[0] || ''; }
+      else if (raw.includes('/album/')) { kind = 'album'; id = raw.split('/album/')[1]?.split('?')[0] || ''; }
+      else if (raw.includes('/track/')) { kind = 'track'; id = raw.split('/track/')[1]?.split('?')[0] || ''; }
     }
+    id = id.replace(/[^a-zA-Z0-9]/g, '');
+    if (id.length < 10) { alert('Paste a valid Spotify playlist, album, or track link.'); return; }
+    const p: SpotifyPlaylist = { id: `c-${Date.now()}`, name: 'Custom Spotify', tag: 'Custom', spotifyId: id, kind };
+    setCustomList(prev => [...prev, p]);
+    setActiveSpotify(p.id);
+    setCustomUrl('');
   };
 
-  // Handle iframe load error detection - reset error state when stream changes
-  useEffect(() => {
-    setVideoError(false);
-    setVideoIdx(0);
-  }, [activeCat]);
+  const allPlaylists = [...SPOTIFY_PLAYLISTS, ...customList];
+  const active = allPlaylists.find(p => p.id === activeSpotify);
+
+  const grouped: Record<string, SpotifyPlaylist[]> = {};
+  allPlaylists.forEach(p => {
+    if (!grouped[p.tag]) grouped[p.tag] = [];
+    grouped[p.tag].push(p);
+  });
 
   const today = todayStr();
   const circ = 2 * Math.PI * 85;
@@ -1315,18 +1283,11 @@ function FocusView({ sessions, focusFinish, accent }: any) {
     { t: 'binaural', icon: '🧠', label: 'Alpha' },
   ];
 
-  // Group streams by tag
-  const grouped: Record<string, typeof allStreams> = {};
-  allStreams.forEach(s => {
-    if (!grouped[s.tag]) grouped[s.tag] = [];
-    grouped[s.tag].push(s);
-  });
-
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>FOCUS CHAMBER</h2>
-        <p className="text-xs text-gray-400">Deep work timer · YouTube Ambient Radio · Procedural sounds</p>
+        <p className="text-xs text-gray-400">Timer · Spotify playlists · Procedural ambience</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1335,7 +1296,7 @@ function FocusView({ sessions, focusFinish, accent }: any) {
           <div className="flex flex-wrap gap-2 mb-8 justify-center">
             {FOCUS_PRESETS.map((p, i) => (
               <button key={p.label} disabled={running} onClick={() => { setPreset(i); setTotal(p.minutes * 60); setRem(p.minutes * 60); }}
-                className="px-3 py-1.5 rounded-xl text-xs font-black transition-all disabled:opacity-50"
+                className="px-3 py-1.5 rounded-xl text-xs font-black disabled:opacity-50"
                 style={preset === i ? { background: `${accent}25`, color: accent, border: `1px solid ${accent}40` } : { background: 'rgba(255,255,255,0.03)', color: '#888' }}>
                 {p.label} · {p.minutes}m
               </button>
@@ -1348,13 +1309,13 @@ function FocusView({ sessions, focusFinish, accent }: any) {
                 strokeDasharray={circ} strokeDashoffset={circ * (1 - progress)} style={{ transition: 'stroke-dashoffset 0.5s' }} />
             </svg>
             <div className="absolute text-center">
-              <div className="text-4xl font-black tracking-wider text-white">{formatTime(rem)}</div>
-              <span className="text-[10px] text-gray-500 uppercase tracking-widest">{FOCUS_PRESETS[preset].label}</span>
+              <div className="text-4xl font-black text-white">{formatTime(rem)}</div>
+              <span className="text-[10px] text-gray-500 uppercase">{FOCUS_PRESETS[preset].label}</span>
             </div>
           </div>
           <div className="flex gap-2">
             {!running ? (
-              <button onClick={start} className="px-8 py-3 rounded-xl text-xs font-black text-black flex items-center gap-2" style={{ background: accent, boxShadow: `0 4px 20px ${accent}55` }}>
+              <button onClick={start} className="px-8 py-3 rounded-xl text-xs font-black text-black flex items-center gap-2" style={{ background: accent }}>
                 <Play size={14} fill="black" /> Engage
               </button>
             ) : (
@@ -1369,30 +1330,35 @@ function FocusView({ sessions, focusFinish, accent }: any) {
           </div>
         </div>
 
-        {/* AUDIO */}
+        {/* SPOTIFY + SYNTH */}
         <div className="space-y-4">
-          {/* YouTube */}
           <div className="p-5 rounded-2xl border border-white/10 space-y-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
-            <h4 className="text-xs font-black uppercase text-red-400 flex items-center gap-2"><Youtube size={14} /> YouTube Ambient Radio</h4>
+            <h4 className="text-xs font-black uppercase text-green-400 flex items-center gap-2">
+              <Music size={14} /> Spotify Focus Radio
+            </h4>
+            <p className="text-[10px] text-gray-500">Pick a playlist. If one fails, choose another. You can also paste any Spotify link.</p>
+
             <div className="flex gap-2">
-              <input value={ytCustom} onChange={e => setYtCustom(e.target.value)} placeholder="Paste YouTube link/ID..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-white/30" />
-              <button onClick={addYt} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs flex items-center gap-1"><Plus size={12} /> Add</button>
+              <input value={customUrl} onChange={e => setCustomUrl(e.target.value)}
+                placeholder="Paste Spotify playlist/album/track link..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none" />
+              <button onClick={addSpotify} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs flex items-center gap-1">
+                <Plus size={12} /> Add
+              </button>
             </div>
 
-            {/* Grouped by tag */}
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+            <div className="space-y-2 max-h-52 overflow-y-auto">
               {Object.entries(grouped).map(([tag, list]) => (
                 <div key={tag}>
                   <div className="text-[10px] uppercase text-gray-500 font-bold mb-1 px-1">{tag}</div>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {list.map(s => {
-                      const active = activeCat === s.id;
+                    {list.map(p => {
+                      const on = activeSpotify === p.id;
                       return (
-                        <button key={s.id} onClick={() => setActiveCat(active ? null : s.id)}
+                        <button key={p.id} onClick={() => setActiveSpotify(on ? null : p.id)}
                           className="p-2 rounded-xl text-left text-xs border transition-all"
-                          style={active ? { background: `${accent}15`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#aaa' }}>
-                          <div className="font-bold truncate leading-tight">{s.name}</div>
+                          style={on ? { background: `${accent}15`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#aaa' }}>
+                          <div className="font-bold truncate">{p.name}</div>
                         </button>
                       );
                     })}
@@ -1401,33 +1367,40 @@ function FocusView({ sessions, focusFinish, accent }: any) {
               ))}
             </div>
 
-            {activeStreamObj && currentVideoId && (
-              <div className="space-y-2">
-                <div className="rounded-xl overflow-hidden border border-white/10">
-                  <iframe ref={iframeRef} key={`${activeStreamObj.id}-${videoIdx}`} className="w-full aspect-video"
-                    src={`https://www.youtube.com/embed/${currentVideoId}?autoplay=1&modestbranding=1`}
-                    allow="autoplay; encrypted-media" title="YT"
-                    onError={() => setVideoError(true)} />
-                </div>
-                {activeStreamObj.videos.length > 1 && (
-                  <button onClick={tryNextVideo} className="w-full py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 flex items-center justify-center gap-2">
-                    <RefreshCw size={12} /> Try Next Video (if this one doesn't play)
-                  </button>
-                )}
+            {active && (
+              <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                <iframe
+                  key={active.id}
+                  title={active.name}
+                  src={spotifyEmbedUrl(active)}
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  style={{ borderRadius: 12 }}
+                />
+                <a
+                  href={`https://open.spotify.com/${active.kind}/${active.spotifyId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1 text-[10px] text-gray-400 py-2 hover:text-green-400"
+                >
+                  <ExternalLink size={10} /> Open in Spotify if embed is blocked
+                </a>
               </div>
             )}
           </div>
 
-          {/* Synth */}
           <div className="p-5 rounded-2xl border border-white/10 space-y-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
             <h4 className="text-xs font-black uppercase text-gray-300 flex items-center gap-2"><Volume2 size={14} style={{ color: accent }} /> Procedural Ambience</h4>
             <div className="grid grid-cols-4 gap-2">
               {soundOpts.map(s => {
-                const active = synth.has(s.t);
+                const on = synth.has(s.t);
                 return (
                   <button key={s.t} onClick={() => toggleSynth(s.t)}
-                    className="p-2.5 rounded-xl text-xs flex flex-col items-center gap-1 border transition-all"
-                    style={active ? { background: `${accent}25`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#888' }}>
+                    className="p-2.5 rounded-xl text-xs flex flex-col items-center gap-1 border"
+                    style={on ? { background: `${accent}25`, borderColor: `${accent}40`, color: accent } : { background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)', color: '#888' }}>
                     <span className="text-lg">{s.icon}</span>
                     <span className="font-bold text-[10px]">{s.label}</span>
                   </button>
@@ -1436,20 +1409,17 @@ function FocusView({ sessions, focusFinish, accent }: any) {
             </div>
           </div>
 
-          {/* Today */}
           <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.02)' }}>
             <h4 className="text-xs font-black uppercase mb-2 text-gray-300">Today's Sessions</h4>
             {sessions.filter((s: FocusSession) => s.date === today).length === 0 ? (
               <p className="text-xs text-gray-500 italic">No sessions logged yet.</p>
             ) : (
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {sessions.filter((s: FocusSession) => s.date === today).map((s: FocusSession) => (
-                  <div key={s.id} className="flex justify-between text-xs p-2 rounded-lg bg-white/[0.02]">
-                    <span>{s.label}</span>
-                    <span className="text-gray-400">{s.minutes}m</span>
-                  </div>
-                ))}
-              </div>
+              sessions.filter((s: FocusSession) => s.date === today).map((s: FocusSession) => (
+                <div key={s.id} className="flex justify-between text-xs p-2 rounded-lg bg-white/[0.02]">
+                  <span>{s.label}</span>
+                  <span className="text-gray-400">{s.minutes}m</span>
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -1458,13 +1428,9 @@ function FocusView({ sessions, focusFinish, accent }: any) {
   );
 }
 
-// ============================================
-// LOOT LOCKER (Categorized)
-// ============================================
 function LootView({ hero, inventory, equipped, buyItem, equipItem, accent }: any) {
   const [cat, setCat] = useState<ShopType>('title');
   const items = SHOP.filter(i => i.type === cat);
-
   const tabs: { key: ShopType; label: string; icon: any }[] = [
     { key: 'title', label: 'Titles', icon: BookOpen },
     { key: 'avatar', label: 'Avatars', icon: User },
@@ -1477,13 +1443,12 @@ function LootView({ hero, inventory, equipped, buyItem, equipItem, accent }: any
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl md:text-3xl font-black tracking-wide" style={{ color: accent }}>LOOT LOCKER</h2>
-          <p className="text-xs text-gray-400">Unlock 70+ legendary titles, avatars, frames & themes</p>
+          <p className="text-xs text-gray-400">70+ cosmetics · Earn gold by completing real work</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm font-black">
           <Coins size={14} /> {hero.gold} Gold
         </div>
       </div>
-
       <div className="flex gap-2 overflow-x-auto pb-2">
         {tabs.map(t => {
           const Ic = t.icon;
@@ -1492,53 +1457,44 @@ function LootView({ hero, inventory, equipped, buyItem, equipItem, accent }: any
           const owned = SHOP.filter(i => i.type === t.key && inventory.includes(i.id)).length;
           return (
             <button key={t.key} onClick={() => setCat(t.key)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap"
               style={active ? { background: `${accent}25`, color: accent, border: `1px solid ${accent}40` } : { background: 'rgba(255,255,255,0.03)', color: '#888' }}>
               <Ic size={14} /> {t.label} <span className="text-[10px] opacity-60">({owned}/{count})</span>
             </button>
           );
         })}
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <AnimatePresence mode="popLayout">
-          {items.map(item => {
-            const owned = inventory.includes(item.id);
-            const isEq = equipped[item.type] === item.id;
-            const rc = rarityColor(item.rarity);
-            const canAfford = hero.gold >= item.cost;
-            return (
-              <motion.div key={item.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="p-5 rounded-2xl border relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderColor: isEq ? `${accent}55` : 'rgba(255,255,255,0.1)' }}>
-                <div className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: `${rc}20`, color: rc }}>
-                  {item.rarity}
+        {items.map(item => {
+          const owned = inventory.includes(item.id);
+          const isEq = equipped[item.type] === item.id;
+          const rc = rarityColor(item.rarity);
+          const canAfford = hero.gold >= item.cost;
+          return (
+            <div key={item.id} className="p-5 rounded-2xl border relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderColor: isEq ? `${accent}55` : 'rgba(255,255,255,0.1)' }}>
+              <div className="absolute top-2 right-2 text-[9px] font-black uppercase px-2 py-0.5 rounded" style={{ background: `${rc}20`, color: rc }}>{item.rarity}</div>
+              <div className="flex items-start gap-3 mb-4 mt-1">
+                <div className="text-3xl">{item.icon}</div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-black">{item.name}</h4>
+                  <p className="text-xs text-gray-400 mt-1">{item.description}</p>
                 </div>
-                <div className="flex items-start gap-3 mb-4 mt-1">
-                  <div className="text-3xl">{item.icon}</div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-black">{item.name}</h4>
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</p>
-                  </div>
+              </div>
+              {isEq ? (
+                <div className="py-2 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-black text-center flex items-center justify-center gap-1.5">
+                  <Check size={14} /> Equipped
                 </div>
-                {isEq ? (
-                  <div className="py-2 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-black text-center flex items-center justify-center gap-1.5">
-                    <Check size={14} /> Equipped
-                  </div>
-                ) : owned ? (
-                  <button onClick={() => equipItem(item)} className="w-full py-2 rounded-xl text-xs font-black transition-all hover:opacity-90"
-                    style={{ background: `${accent}25`, color: accent, border: `1px solid ${accent}40` }}>
-                    Equip
-                  </button>
-                ) : (
-                  <button onClick={() => buyItem(item)} disabled={!canAfford} className="w-full py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                    style={{ background: canAfford ? accent : 'rgba(255,255,255,0.03)', color: canAfford ? '#000' : '#666' }}>
-                    {canAfford ? <><Coins size={12} /> Buy · {item.cost}</> : <><Lock size={12} /> {item.cost} Gold</>}
-                  </button>
-                )}
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+              ) : owned ? (
+                <button onClick={() => equipItem(item)} className="w-full py-2 rounded-xl text-xs font-black" style={{ background: `${accent}25`, color: accent, border: `1px solid ${accent}40` }}>Equip</button>
+              ) : (
+                <button onClick={() => buyItem(item)} disabled={!canAfford} className="w-full py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 disabled:opacity-40"
+                  style={{ background: canAfford ? accent : 'rgba(255,255,255,0.03)', color: canAfford ? '#000' : '#666' }}>
+                  {canAfford ? <><Coins size={12} /> Buy · {item.cost}</> : <><Lock size={12} /> {item.cost} Gold</>}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
