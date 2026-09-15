@@ -65,7 +65,7 @@ function useStored<T>(key: string, initial: T): [T, (val: T | ((prev: T) => T)) 
 const todayStr = () => new Date().toISOString().split('T')[0];
 const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
 
-// --- HIGH-RESOLUTION SWORD LOGO ---
+// --- PREMIUM HIGH-DETAIL SWORD LOGO ---
 function SwordLogo({ size = 44 }: { size?: number }) {
   return (
     <div 
@@ -73,7 +73,7 @@ function SwordLogo({ size = 44 }: { size?: number }) {
       style={{ 
         width: size, 
         height: size, 
-        background: 'linear-gradient(135deg, #5B21B6 0%, #7C3AED 50%, #A78BFA 100%)',
+        background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 50%, #C084FC 100%)',
         boxShadow: '0 4px 20px rgba(124, 58, 237, 0.55)',
         border: '1.5px solid rgba(192, 132, 252, 0.4)'
       }}
@@ -90,7 +90,7 @@ function SwordLogo({ size = 44 }: { size?: number }) {
         <g transform="translate(0, -1)">
           {/* Blade Body */}
           <path d="M50 14 L56 38 L53 62 L47 62 L44 38 Z" fill="url(#bladeGrad)" />
-          {/* Blade Fuller / Center Ridge */}
+          {/* Blade Center Ridge */}
           <path d="M50 14 L50 62" stroke="#94A3B8" strokeWidth="0.8" />
           {/* Curved Guard */}
           <path d="M30 61 C40 59 60 59 70 61 L70 66 C60 64 40 64 30 66 Z" fill="#FFFFFF" />
@@ -636,8 +636,8 @@ export default function TaskForge() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-[2rem] flex flex-col items-center justify-center text-center">
             <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-6">Light for the Hour</h3>
-            <p className="text-4xl md:text-5xl font-black text-white italic leading-tight mb-4 tracking-tight drop-shadow-md">"{verse.text}"</p>
-            <p className="text-violet-400 font-bold uppercase tracking-widest">- {verse.ref}</p>
+            <p className="text-3xl sm:text-4xl font-black text-white italic leading-tight mb-4 tracking-tight drop-shadow-md">"{verse.text}"</p>
+            <p className="text-violet-400 font-bold uppercase tracking-widest text-sm mt-2">- {verse.ref}</p>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] shadow-xl relative overflow-hidden">
