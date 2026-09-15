@@ -27,8 +27,8 @@ import {
   Edit2,
   Camera,
   Save,
-  Archive,
-  RotateCw
+  RotateCw,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -61,9 +61,10 @@ function useStored<T>(key: string, initial: T): [T, (val: T) => void] {
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
+
 const xpForLevel = (lvl: number) => Math.round(80 + (lvl - 1) * 42);
 
-// --- PREMIUM LOGO COMPONENT ---
+// --- LOGO COMPONENT ---
 function SwordLogo({ size = 44 }: { size?: number }) {
   return (
     <div 
@@ -71,25 +72,14 @@ function SwordLogo({ size = 44 }: { size?: number }) {
       style={{ 
         width: size, 
         height: size, 
-        background: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 50%, #C084FC 100%)',
+        background: 'linear-gradient(135deg, #7C3AED, #A78BFA)',
         boxShadow: '0 4px 20px rgba(124, 58, 237, 0.45)'
       }}
     >
-      <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g transform="translate(0, -2)">
-          {/* Blade Left Side */}
-          <path d="M50 18 L55 35 L53 65 L47 65 L45 35 Z" fill="#FFFFFF" />
-          {/* Blade Right Side (Depth/Shadow) */}
-          <path d="M50 18 L55 35 L53 65 L50 65 Z" fill="#E2E8F0" />
-          {/* Crossguard */}
-          <rect x="32" y="63" width="36" height="4" rx="2" fill="#FFFFFF" />
-          {/* Hilt / Grip */}
-          <rect x="46" y="67" width="8" height="14" fill="#CBD5E1" />
-          {/* Grip Wraps */}
-          <path d="M46 70 L54 72 M46 74 L54 76 M46 78 L54 80" stroke="#94A3B8" strokeWidth="1.5" />
-          {/* Pommel */}
-          <circle cx="50" cy="83" r="5" fill="#FFFFFF" />
-        </g>
+      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L13.5 8.5L16 10L13.5 11.5L12 21L10.5 11.5L8 10L10.5 8.5L12 2Z" fill="white" />
+        <path d="M7 11H17V13H7V11Z" fill="white" />
+        <path d="M10 20H14V22H10V20Z" fill="white" />
       </svg>
     </div>
   );
@@ -368,7 +358,7 @@ export default function TaskForge() {
   const [lastAtk, setLastAtk] = useStored('tf_atk_v4', 0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Focus States
+  // New Focus States
   const [hiddenPlaylists, setHiddenPlaylists] = useStored<string[]>('tf_hidden_spotify_v1', []);
   const [customPlaylists, setCustomPlaylists] = useStored<any[]>('tf_custom_spotify_v1', []);
 
@@ -691,8 +681,11 @@ export default function TaskForge() {
         if (newDates.includes(today)) {
           newStreak++;
           if (!alreadyRewarded) {
-            grantXp(20); grantGold(8); damageBoss(10); touch();
-            setNotif("Consistency pays off! +8 Gold, +20 XP");
+            grantXp(20);
+            grantGold(8);
+            damageBoss(10);
+            touch();
+            setNotif("Consistancy pays off! +8 Gold, +20 XP");
           }
         } else {
           newStreak = Math.max(0, newStreak - 1);
@@ -786,6 +779,7 @@ export default function TaskForge() {
         if (t.id !== id) return t;
         if (t.completed) return { ...t, completed: false };
         
+        // Mark completed first time
         if (!t.rewardClaimed) {
           const xp = t.important ? 30 : 20;
           const gold = t.important ? 12 : 8;
@@ -856,7 +850,7 @@ export default function TaskForge() {
     const [noiseVol, setNoiseVol] = useState(0.5);
     const [activeSpotify, setActiveSpotify] = useState<string | null>(null);
     const [customLink, setCustomLink] = useState('');
-    const [showHiddenBin, setShowHiddenBin] = useState(false);
+    const [todayFocus, setTodayFocus] = useStored('tf_focus_daily', { date: todayStr(), mins: 0 });
 
     useEffect(() => {
       let t: any;
@@ -864,7 +858,7 @@ export default function TaskForge() {
         t = setInterval(() => setTimeLeft(l => l - 1), 1000);
       } else if (timeLeft === 0) {
         setIsActive(false);
-        const mins = 25;
+        const mins = 25; // Placeholder for logic
         grantXp(mins * 2); grantGold(Math.round(mins * 0.8)); damageBoss(Math.round(mins * 0.6));
         setNotif("Focus Session Complete! Massive Gains!");
       }
@@ -887,10 +881,7 @@ export default function TaskForge() {
       if (activeSpotify === id) setActiveSpotify(null);
     };
 
-    const restorePlaylist = (id: string) => {
-      setHiddenPlaylists(prev => prev.filter(x => x !== id));
-      if (hiddenPlaylists.length <= 1) setShowHiddenBin(false);
-    };
+    const restoreHidden = () => setHiddenPlaylists([]);
 
     const allPlaylists = [...SPOTIFY_PLAYLISTS, ...customPlaylists].filter(p => !hiddenPlaylists.includes(p.id));
 
@@ -974,25 +965,7 @@ export default function TaskForge() {
                 </button>
               </div>
             ) : (
-              <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center relative">
-                
-                {/* Archived Hidden Items Button */}
-                <div className="absolute top-6 right-6">
-                   <button 
-                      onClick={() => setShowHiddenBin(!showHiddenBin)}
-                      className={`p-3 rounded-xl transition-all relative ${hiddenPlaylists.length > 0 ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-transparent text-slate-700 cursor-not-allowed'}`}
-                      disabled={hiddenPlaylists.length === 0}
-                      title="Hidden Suggestions"
-                   >
-                      <Archive size={20} />
-                      {hiddenPlaylists.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-600 text-[9px] font-black flex items-center justify-center rounded-full text-white ring-2 ring-slate-900">
-                          {hiddenPlaylists.length}
-                        </span>
-                      )}
-                   </button>
-                </div>
-
+              <div className="bg-slate-900 border-2 border-dashed border-slate-800 rounded-[2.5rem] aspect-video flex flex-col items-center justify-center p-12 text-center">
                 <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 text-slate-600"><Music size={40} /></div>
                 <h3 className="text-2xl font-black text-white mb-3">Atmospheric Resonance</h3>
                 <p className="text-slate-500 font-bold max-w-sm">Select a sonic environment below or paste a Spotify playlist link to begin your deep work session.</p>
@@ -1004,37 +977,11 @@ export default function TaskForge() {
               </div>
             )}
 
-            {/* Hidden Bin Panel */}
-            <AnimatePresence>
-              {showHiddenBin && hiddenPlaylists.length > 0 && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                  <div className="p-5 bg-slate-900/80 border border-slate-700 rounded-2xl mb-6">
-                    <h4 className="text-xs font-black uppercase text-slate-400 mb-3 tracking-widest flex items-center gap-2"><Archive size={14} /> Hidden Suggestions Archive</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {hiddenPlaylists.map(id => {
-                        const p = [...SPOTIFY_PLAYLISTS, ...customPlaylists].find(x => x.id === id);
-                        if (!p) return null;
-                        return (
-                          <div key={id} className="flex items-center gap-2 bg-slate-800 border border-slate-700 pl-3 pr-2 py-1.5 rounded-xl text-sm shadow-sm group/bin">
-                            <span className="font-bold text-slate-300">{p.name}</span>
-                            <button onClick={() => restorePlaylist(id)} className="text-slate-500 hover:text-violet-400 p-1 rounded-md transition-colors bg-slate-900/50" title="Restore">
-                              <RotateCw size={14} />
-                            </button>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Spotify Playlist Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
               {allPlaylists.map(p => (
                 <div key={p.id} className="relative group">
                   <button onClick={() => setActiveSpotify(p.id)}
-                    className="w-full p-6 bg-slate-900 border border-slate-800 rounded-3xl text-left hover:border-violet-500 transition-all flex flex-col items-start gap-4">
+                    className="w-full p-6 bg-slate-900 border border-slate-800 rounded-3xl text-left hover:border-violet-500 transition-all group flex flex-col items-start gap-4">
                     <div className="w-12 h-12 bg-violet-600/10 rounded-2xl flex items-center justify-center text-violet-500 group-hover:bg-violet-600 group-hover:text-white transition-all">
                       <Play size={20} />
                     </div>
@@ -1043,12 +990,10 @@ export default function TaskForge() {
                       <p className="font-bold text-white leading-tight">{p.name}</p>
                     </div>
                   </button>
-                  
-                  {/* STRICT HIDDEN X - Only visible when cursor hovers this exact card */}
                   <button 
                     onClick={(e) => { e.stopPropagation(); hidePlaylist(p.id); }}
-                    className="absolute top-2 right-2 p-1.5 bg-slate-800/90 text-slate-400 rounded-lg hidden group-hover:flex items-center justify-center hover:text-red-500 hover:bg-red-500/20 transition-all z-10 shadow-lg"
-                    title="Hide Suggestion"
+                    className="absolute top-2 right-2 p-1.5 bg-slate-800 text-slate-500 rounded-lg opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                    title="Remove Suggestion"
                   >
                     <X size={14} />
                   </button>
@@ -1056,10 +1001,17 @@ export default function TaskForge() {
               ))}
             </div>
 
-            {allPlaylists.length === 0 && !showHiddenBin && (
+            {hiddenPlaylists.length > 0 && (
+              <div className="flex justify-center pt-4">
+                <button onClick={restoreHidden} className="flex items-center gap-2 text-xs font-black text-slate-500 hover:text-violet-400 transition-colors uppercase tracking-widest px-4 py-2 bg-slate-900 border border-slate-800 rounded-full">
+                  <RefreshCw size={14} /> Restore {hiddenPlaylists.length} hidden suggestions
+                </button>
+              </div>
+            )}
+            {allPlaylists.length === 0 && (
               <div className="text-center py-10 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
                 <p className="text-slate-500 font-bold mb-4">All suggestions hidden.</p>
-                <button onClick={() => setShowHiddenBin(true)} className="text-violet-500 font-black text-xs uppercase flex items-center justify-center gap-1 mx-auto"><Archive size={14} /> Open Archive</button>
+                <button onClick={restoreHidden} className="text-violet-500 font-black text-xs uppercase underline">Restore All</button>
               </div>
             )}
           </div>
